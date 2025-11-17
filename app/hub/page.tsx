@@ -1,63 +1,114 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { Layout } from '@/components/layout/Layout'
-import { Card } from '@/components/ui/Card'
+import { useState, useEffect } from 'react';
+import { Layout } from '@/components/layout/Layout';
+import MaterialModal from '@/components/ui/MaterialModal';
+import { SavedStudyMaterial } from '@/lib/studyMaterialStorage';
 
 export default function StudyHub() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filter, setFilter] = useState('all')
+  const [materials, setMaterials] = useState<SavedStudyMaterial[]>([]);
+  const [filteredMaterials, setFilteredMaterials] = useState<SavedStudyMaterial[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const documents = [
-    {
-      id: 1,
-      title: 'Lecture Summary - History 101',
-      date: 'Jan 15, 2024',
-      type: 'lecture',
-      icon: 'description',
-    },
-    {
-      id: 2,
-      title: 'Lecture Summary - Biology 202',
-      date: 'Feb 20, 2024',
-      type: 'lecture',
-      icon: 'description',
-    },
-    {
-      id: 3,
-      title: 'Enhanced Images - Chemistry 303',
-      date: 'Mar 25, 2024',
-      type: 'image',
-      icon: 'image',
-    },
-    {
-      id: 4,
-      title: 'Lecture Summary - Physics 404',
-      date: 'Apr 30, 2024',
-      type: 'lecture',
-      icon: 'description',
-    },
-    {
-      id: 5,
-      title: 'Lecture Summary - Math 505',
-      date: 'May 05, 2024',
-      type: 'lecture',
-      icon: 'description',
-    },
-    {
-      id: 6,
-      title: 'Enhanced Images - English 606',
-      date: 'Jun 10, 2024',
-      type: 'image',
-      icon: 'image',
-    },
-  ]
+  // Modal state
+  const [selectedMaterial, setSelectedMaterial] = useState<SavedStudyMaterial | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
-  const filteredDocuments = documents.filter((doc) => {
-    const matchesSearch = doc.title.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesFilter = filter === 'all' || doc.type === filter
-    return matchesSearch && matchesFilter
-  })
+  // Load materials on mount
+  useEffect(() => {
+    loadMaterials();
+  }, []);
+
+  // Apply filters when materials, search, or filter changes
+  useEffect(() => {
+    applyFilters();
+  }, [materials, searchQuery, filter]);
+
+  const loadMaterials = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/study-materials');
+      const data = await response.json();
+
+      if (data.success) {
+        setMaterials(data.materials);
+      } else {
+        setError(data.error || 'Failed to load materials');
+      }
+    } catch (err) {
+      console.error('Error loading materials:', err);
+      setError('An error occurred while loading materials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...materials];
+
+    // Apply search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(m =>
+        m.title.toLowerCase().includes(query) ||
+        m.content.toLowerCase().includes(query) ||
+        m.transcript.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply type filter
+    if (filter !== 'all') {
+      filtered = filtered.filter(m => m.materialType === filter);
+    }
+
+    setFilteredMaterials(filtered);
+  };
+
+  const handleOpenMaterial = (material: SavedStudyMaterial) => {
+    setSelectedMaterial(material);
+    setModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setSelectedMaterial(null);
+  };
+
+  const handleDeleteMaterial = async (id: string) => {
+    // Remove from local state
+    setMaterials(prev => prev.filter(m => m.id !== id));
+    // Reload to ensure consistency
+    await loadMaterials();
+  };
+
+  const getTypeIcon = (type: string) => {
+    const icons = {
+      'exam': 'school',
+      'summary': 'summarize',
+      'quiz': 'quiz',
+      'mock-exam': 'assignment',
+      'explain': 'psychology',
+      'custom': 'edit_note'
+    };
+    return icons[type as keyof typeof icons] || 'description';
+  };
+
+  const getTypeColor = (type: string) => {
+    const colors = {
+      'exam': 'text-purple-600',
+      'summary': 'text-blue-600',
+      'quiz': 'text-green-600',
+      'mock-exam': 'text-orange-600',
+      'explain': 'text-pink-600',
+      'custom': 'text-indigo-600'
+    };
+    return colors[type as keyof typeof colors] || 'text-gray-600';
+  };
 
   return (
     <Layout>
@@ -65,7 +116,7 @@ export default function StudyHub() {
         <div className="container mx-auto max-w-7xl">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-            <h2 className="text-3xl font-bold">My Study Hub</h2>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">My Study Hub</h2>
 
             <div className="flex items-center gap-4">
               {/* Search */}
@@ -78,7 +129,7 @@ export default function StudyHub() {
                   placeholder="Search your materials..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-gray-100 dark:bg-gray-800 border-transparent focus:ring-2 focus:ring-primary focus:border-transparent placeholder-gray-400"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 shadow-sm"
                 />
               </div>
 
@@ -87,11 +138,15 @@ export default function StudyHub() {
                 <select
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
-                  className="appearance-none bg-gray-100 dark:bg-gray-800 border-transparent rounded-lg pl-4 pr-10 py-2.5 text-sm font-medium focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="appearance-none bg-white border border-gray-200 rounded-lg pl-4 pr-10 py-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
                 >
-                  <option value="all">All</option>
-                  <option value="lecture">Lecture Summaries</option>
-                  <option value="image">Enhanced Images</option>
+                  <option value="all">All Types</option>
+                  <option value="exam">Exam Prep</option>
+                  <option value="summary">Summaries</option>
+                  <option value="quiz">Quizzes</option>
+                  <option value="mock-exam">Mock Exams</option>
+                  <option value="explain">Explanations</option>
+                  <option value="custom">Custom</option>
                 </select>
                 <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                   expand_more
@@ -100,59 +155,86 @@ export default function StudyHub() {
             </div>
           </div>
 
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 dark:text-gray-400">Loading your materials...</p>
+              </div>
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && !loading && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+              <p className="text-red-800">{error}</p>
+              <button
+                onClick={loadMaterials}
+                className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
           {/* Documents Grid */}
-          {filteredDocuments.length > 0 ? (
+          {!loading && !error && filteredMaterials.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-              {filteredDocuments.map((doc) => (
+              {filteredMaterials.map((material) => (
                 <div
-                  key={doc.id}
-                  className="group relative rounded-xl overflow-hidden bg-card-light dark:bg-card-dark shadow-sm hover:shadow-lg transition-shadow duration-300"
+                  key={material.id}
+                  onClick={() => handleOpenMaterial(material)}
+                  className="group relative rounded-xl overflow-hidden bg-white shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105 border border-gray-100"
                 >
                   {/* Document Preview */}
-                  <div className="aspect-square w-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-5xl text-primary/50">
-                      {doc.icon}
+                  <div className="aspect-square w-full bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
+                    <span className={`material-symbols-outlined text-6xl ${getTypeColor(material.materialType)} opacity-50`}>
+                      {getTypeIcon(material.materialType)}
                     </span>
                   </div>
 
                   {/* Document Info */}
                   <div className="p-4">
-                    <h3 className="font-bold text-sm truncate">{doc.title}</h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {doc.date}
+                    <h3 className="font-bold text-sm line-clamp-2 mb-1" title={material.title}>
+                      {material.title}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(material.createdAt).toLocaleDateString()}
                     </p>
+                    <div className="mt-2 flex items-center gap-1">
+                      {material.sources.hasAudio && (
+                        <span className="material-symbols-outlined text-xs text-blue-500" title="Audio">
+                          videocam
+                        </span>
+                      )}
+                      {material.sources.hasSlides && (
+                        <span className="material-symbols-outlined text-xs text-purple-500" title="Slides">
+                          description
+                        </span>
+                      )}
+                      {material.sources.hasPhotos && (
+                        <span className="material-symbols-outlined text-xs text-green-500" title="Photos">
+                          image
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Hover Actions */}
+                  {/* Hover Overlay */}
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="flex items-center gap-4">
-                      <button
-                        className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors"
-                        title="Download"
-                      >
-                        <span className="material-symbols-outlined">download</span>
-                      </button>
-                      <button
-                        className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors"
-                        title="Rename"
-                      >
-                        <span className="material-symbols-outlined">
-                          drive_file_rename_outline
-                        </span>
-                      </button>
-                      <button
-                        className="h-10 w-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors"
-                        title="Delete"
-                      >
-                        <span className="material-symbols-outlined">delete</span>
-                      </button>
+                    <div className="text-white text-center">
+                      <span className="material-symbols-outlined text-4xl mb-2">visibility</span>
+                      <p className="text-sm font-medium">Click to view</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-          ) : (
-            /* Empty State */
+          )}
+
+          {/* Empty State */}
+          {!loading && !error && filteredMaterials.length === 0 && (
             <div className="text-center py-20">
               <div className="w-full max-w-sm mx-auto mb-6">
                 <div className="aspect-video bg-gradient-to-br from-primary/20 to-accent/20 rounded-lg flex items-center justify-center">
@@ -161,24 +243,32 @@ export default function StudyHub() {
                   </span>
                 </div>
               </div>
-              <h3 className="text-xl font-bold mb-2">No documents found</h3>
+              <h3 className="text-xl font-bold mb-2">No materials found</h3>
               <p className="text-gray-500 dark:text-gray-400 mb-6">
-                {searchQuery
+                {searchQuery || filter !== 'all'
                   ? 'Try adjusting your search or filter'
-                  : 'Start processing your lectures to see them here.'}
+                  : 'Start creating study materials to see them here.'}
               </p>
-              {!searchQuery && (
+              {!searchQuery && filter === 'all' && (
                 <a
-                  href="/process-lecture"
-                  className="inline-block bg-primary text-white font-bold text-sm px-6 py-3 rounded-lg hover:bg-primary-dark transition-colors"
+                  href="/"
+                  className="inline-block bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold text-sm px-6 py-3 rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all shadow-md hover:shadow-lg"
                 >
-                  Process Your First Lecture
+                  Create Your First Material
                 </a>
               )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Material Modal */}
+      <MaterialModal
+        isOpen={modalOpen}
+        onClose={handleCloseModal}
+        material={selectedMaterial}
+        onDelete={handleDeleteMaterial}
+      />
     </Layout>
-  )
+  );
 }

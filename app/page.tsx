@@ -9,6 +9,8 @@ import ProcessingProgress from '@/components/ui/ProcessingProgress';
 import ActionButtons from '@/components/ui/ActionButtons';
 import ChatMessage from '@/components/ui/ChatMessage';
 import FeedbackWidget from '@/components/ui/FeedbackWidget';
+import CreateAnotherModal from '@/components/ui/CreateAnotherModal';
+import TranscriptModal from '@/components/ui/TranscriptModal';
 import { fileToBase64, extractSlideContent, analyzeImageContent } from '@/lib/fileProcessing';
 
 interface MaterialFile {
@@ -55,6 +57,7 @@ export default function Home() {
     transcription: { status: 'idle' as 'idle' | 'loading' | 'success' | 'error' | 'skipped', message: '' },
     slideExtraction: { status: 'idle' as 'idle' | 'loading' | 'success' | 'error' | 'skipped', message: '' },
     imageAnalysis: { status: 'idle' as 'idle' | 'loading' | 'success' | 'error' | 'skipped', message: '' },
+    materialGeneration: { status: 'idle' as 'idle' | 'loading' | 'success' | 'error' | 'skipped', message: '' },
   });
 
   // Output states
@@ -62,6 +65,21 @@ export default function Home() {
   const [customPrompt, setCustomPrompt] = useState('');
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
+  const [generatedTranscript, setGeneratedTranscript] = useState('');
+  const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Multi-step flow states
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
+  const [cachedExtraction, setCachedExtraction] = useState<{
+    transcript: string;
+    slideText: string;
+    imageAnalysis: string;
+  } | null>(null);
+
+  // Modal states
+  const [showCreateAnother, setShowCreateAnother] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(false);
 
   // Load materials data
   useEffect(() => {
@@ -274,7 +292,12 @@ export default function Home() {
         }));
       }
 
-      // Step 4: Generate Materials
+      // Step 4: Generate Materials with Gemini
+      setProcessingSteps(prev => ({
+        ...prev,
+        materialGeneration: { status: 'loading', message: 'Generating study materials with AI...' }
+      }));
+
       const generateResponse = await fetch('/api/generate-materials', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -282,17 +305,44 @@ export default function Home() {
           transcript,
           slideText,
           imageAnalysis,
-          outputType,
+          materialType: outputType,
           customPrompt: outputType === 'custom' ? customPrompt : undefined,
         }),
       });
 
       if (!generateResponse.ok) {
-        throw new Error('Failed to generate materials');
+        setProcessingSteps(prev => ({
+          ...prev,
+          materialGeneration: { status: 'error', message: 'Failed to generate materials' }
+        }));
+        const errorData = await generateResponse.json();
+        throw new Error(errorData.error || 'Failed to generate materials');
       }
 
       const generateData = await generateResponse.json();
+
+      // Show success state
+      setProcessingSteps(prev => ({
+        ...prev,
+        materialGeneration: { status: 'success', message: 'Materials generated successfully!' }
+      }));
+
+      // Wait 1.5 seconds to show the success state, then display results
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       setResult(generateData.content);
+      setGeneratedTranscript(transcript); // Save transcript for later use
+      setIsSaved(false); // Reset saved state
+
+      // Cache extracted text for reuse
+      setCachedExtraction({
+        transcript,
+        slideText,
+        imageAnalysis
+      });
+
+      // Move to results step
+      setCurrentStep(4);
     } catch (err: any) {
       console.error('Processing error:', err);
       setError(err.message || 'An error occurred during processing');
@@ -307,15 +357,189 @@ export default function Home() {
     setPhotoFiles([]);
     setResult('');
     setError('');
+    setGeneratedTranscript('');
+    setIsSaved(false);
     setProcessingSteps({
       transcription: { status: 'idle', message: '' },
       slideExtraction: { status: 'idle', message: '' },
       imageAnalysis: { status: 'idle', message: '' },
+      materialGeneration: { status: 'idle', message: '' },
     });
     setUsePreUploaded(false);
     setSelectedInstructor('');
     setSelectedWeek(null);
     setSelectedLecture(null);
+  };
+
+  const handleSaveToHub = async () => {
+    if (!result || isSaved) return;
+
+    setIsSaving(true);
+    setError('');
+
+    try {
+      // Generate a title based on output type and date
+      const typeLabels = {
+        'exam': 'Exam Prep',
+        'summary': 'Summary',
+        'quiz': 'Quiz',
+        'mock-exam': 'Mock Exam',
+        'explain': 'Detailed Explanation',
+        'custom': 'Custom Study Material'
+      };
+
+      const title = `${typeLabels[outputType as keyof typeof typeLabels] || 'Study Material'} - ${new Date().toLocaleDateString()}`;
+
+      // Prepare metadata
+      const metadata = {
+        audioFileName: audioFile?.name,
+        slideFileNames: slideFiles.map(f => f.name),
+        photoFileNames: photoFiles.map(f => f.name),
+        wordCount: result.split(/\s+/).length
+      };
+
+      console.log('Saving material to hub...', { title, materialType: outputType });
+
+      // Save to API
+      const response = await fetch('/api/study-materials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          materialType: outputType,
+          content: result,
+          transcript: generatedTranscript,
+          sources: {
+            hasAudio: !!audioFile,
+            hasSlides: slideFiles.length > 0,
+            hasPhotos: photoFiles.length > 0
+          },
+          metadata
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save material');
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('Material saved successfully!', data.material);
+        setIsSaved(true);
+        // Show success message briefly
+        setTimeout(() => {
+          // Optionally could redirect to hub or show a notification
+        }, 1000);
+      } else {
+        throw new Error(data.error || 'Failed to save material');
+      }
+    } catch (err: any) {
+      console.error('Error saving material:', err);
+      setError(err.message || 'Failed to save material to hub');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Step navigation handlers
+  const handleContinue = () => {
+    // Validate files before continuing
+    if (!audioFile && slideFiles.length === 0 && photoFiles.length === 0) {
+      setError('Please upload at least one file (audio, slides, or photos)');
+      return;
+    }
+    setError('');
+    setCurrentStep(2);
+  };
+
+  const handleTypeSelection = (type: string) => {
+    setOutputType(type);
+    setCurrentStep(3);
+    // Start processing
+    handleGenerate();
+  };
+
+  const handleCreateAnother = (type: string) => {
+    if (!cachedExtraction) return;
+
+    setOutputType(type);
+    setCurrentStep(3);
+    setIsProcessing(true);
+    setError('');
+    setResult('');
+
+    // Generate with cached extraction
+    generateWithCachedData(type);
+  };
+
+  const generateWithCachedData = async (type: string) => {
+    try {
+      // Show material generation progress
+      setProcessingSteps(prev => ({
+        ...prev,
+        materialGeneration: { status: 'loading', message: 'Generating study materials with AI...' }
+      }));
+
+      const generateResponse = await fetch('/api/generate-materials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript: cachedExtraction?.transcript || '',
+          slideText: cachedExtraction?.slideText || '',
+          imageAnalysis: cachedExtraction?.imageAnalysis || '',
+          materialType: type,
+          customPrompt: type === 'custom' ? customPrompt : undefined,
+        }),
+      });
+
+      if (!generateResponse.ok) {
+        setProcessingSteps(prev => ({
+          ...prev,
+          materialGeneration: { status: 'error', message: 'Failed to generate materials' }
+        }));
+        const errorData = await generateResponse.json();
+        throw new Error(errorData.error || 'Failed to generate materials');
+      }
+
+      const generateData = await generateResponse.json();
+
+      // Show success
+      setProcessingSteps(prev => ({
+        ...prev,
+        materialGeneration: { status: 'success', message: 'Materials generated successfully!' }
+      }));
+
+      // Wait 1.5 seconds before showing results
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      setResult(generateData.content);
+      setIsSaved(false);
+      setCurrentStep(4);
+    } catch (err: any) {
+      console.error('Generation error:', err);
+      setError(err.message || 'An error occurred during generation');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleStartOver = () => {
+    setCurrentStep(1);
+    setResult('');
+    setError('');
+    setIsSaved(false);
+    setAudioFile(null);
+    setSlideFiles([]);
+    setPhotoFiles([]);
+    setCachedExtraction(null);
+    setGeneratedTranscript('');
+    setProcessingSteps({
+      transcription: { status: 'idle', message: '' },
+      slideExtraction: { status: 'idle', message: '' },
+      imageAnalysis: { status: 'idle', message: '' },
+      materialGeneration: { status: 'idle', message: '' },
+    });
   };
 
   return (
@@ -359,7 +583,9 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Pre-uploaded Materials Section */}
+          {/* Step 1: File Upload */}
+          {currentStep === 1 && (
+          <>
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 border-2 border-purple-100">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -481,10 +707,10 @@ export default function Home() {
 
           {/* Manual Upload Section */}
           {!usePreUploaded && (
-            <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
               <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
                 <span className="material-symbols-outlined text-blue-600">cloud_upload</span>
-                Or Upload Your Own Files
+                Upload Your Own Files
               </h3>
 
               <div className="space-y-6">
@@ -527,14 +753,32 @@ export default function Home() {
             </div>
           )}
 
-          {/* Action Buttons */}
-          {(audioFile || slideFiles.length > 0) && !result && (
+          {/* Continue Button */}
+          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+            <button
+              onClick={handleContinue}
+              disabled={!audioFile && slideFiles.length === 0 && photoFiles.length === 0}
+              className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+            >
+              <span>Continue to Select Material Type</span>
+              <span className="material-symbols-outlined">arrow_forward</span>
+            </button>
+          </div>
+          </>
+          )}
+
+          {/* Step 2: Material Type Selection */}
+          {currentStep === 2 && (
             <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+              <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+                What type of study material do you want to create?
+              </h3>
               <ActionButtons
                 onActionSelect={(action) => {
-                  setOutputType(action);
-                  if (action !== 'custom') {
-                    handleGenerate();
+                  if (action === 'custom') {
+                    setOutputType(action);
+                  } else {
+                    handleTypeSelection(action);
                   }
                 }}
                 disabled={isProcessing}
@@ -553,7 +797,7 @@ export default function Home() {
                     placeholder="e.g., 'Create flashcards focusing on key definitions' or 'Explain this using simple analogies'"
                   />
                   <button
-                    onClick={handleGenerate}
+                    onClick={() => handleTypeSelection('custom')}
                     disabled={isProcessing || !customPrompt.trim()}
                     className="mt-4 w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                   >
@@ -564,8 +808,8 @@ export default function Home() {
             </div>
           )}
 
-          {/* Processing Progress */}
-          {isProcessing && (
+          {/* Step 3: Processing Progress */}
+          {currentStep === 3 && isProcessing && (
             <div className="mb-8">
               <ProcessingProgress
                 tasks={[
@@ -601,6 +845,17 @@ export default function Home() {
                             processingSteps.imageAnalysis.status === 'error' ? 'error' : 'skipped',
                     message: processingSteps.imageAnalysis.message,
                     color: 'bg-green-500'
+                  },
+                  {
+                    id: 'materialGeneration',
+                    label: 'Generating Study Materials',
+                    icon: 'auto_awesome',
+                    status: processingSteps.materialGeneration.status === 'idle' ? 'pending' :
+                            processingSteps.materialGeneration.status === 'loading' ? 'processing' :
+                            processingSteps.materialGeneration.status === 'success' ? 'completed' :
+                            processingSteps.materialGeneration.status === 'error' ? 'error' : 'skipped',
+                    message: processingSteps.materialGeneration.message,
+                    color: 'bg-orange-500'
                   }
                 ]}
               />
@@ -617,30 +872,86 @@ export default function Home() {
             </div>
           )}
 
-          {/* Results */}
-          {result && (
+          {/* Step 4: Results */}
+          {currentStep === 4 && result && (
             <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-2xl font-bold text-gray-800">Your Study Materials</h3>
-                <button
-                  onClick={handleReset}
-                  className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors flex items-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-sm">refresh</span>
-                  Start New
-                </button>
               </div>
+
               <ChatMessage
                 content={result}
                 role="assistant"
                 timestamp={new Date().toISOString()}
               />
+
+              {/* Action Buttons */}
+              <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-3">
+                <button
+                  onClick={handleSaveToHub}
+                  disabled={isSaving || isSaved}
+                  className={`px-4 py-3 rounded-lg transition-all flex items-center justify-center gap-2 font-medium ${
+                    isSaved
+                      ? 'bg-green-100 text-green-800 cursor-default'
+                      : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-md hover:shadow-lg'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {isSaved ? 'check_circle' : 'save'}
+                  </span>
+                  {isSaving ? 'Saving...' : isSaved ? 'Saved!' : 'Save to Hub'}
+                </button>
+
+                {generatedTranscript && (
+                  <button
+                    onClick={() => setShowTranscript(true)}
+                    className="px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium border border-blue-200"
+                  >
+                    <span className="material-symbols-outlined text-sm">article</span>
+                    View Transcript
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    const blob = new Blob([result], { type: 'text/markdown' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `study-material-${new Date().toISOString().split('T')[0]}.md`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="px-4 py-3 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium border border-purple-200"
+                >
+                  <span className="material-symbols-outlined text-sm">download</span>
+                  Download
+                </button>
+
+                <button
+                  onClick={() => setShowCreateAnother(true)}
+                  className="px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium border border-green-200"
+                >
+                  <span className="material-symbols-outlined text-sm">add_circle</span>
+                  Create Another
+                </button>
+
+                <button
+                  onClick={handleStartOver}
+                  className="px-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium border border-gray-200"
+                >
+                  <span className="material-symbols-outlined text-sm">refresh</span>
+                  Start Over
+                </button>
+              </div>
+
               <div className="mt-6">
                 <FeedbackWidget
                   materialType={outputType}
                   onFeedbackSubmit={(rating, comment) => {
                     console.log('Feedback:', { rating, comment, outputType });
-                    // You can send this to an API endpoint if needed
                   }}
                 />
               </div>
@@ -648,6 +959,19 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Modals */}
+      <CreateAnotherModal
+        isOpen={showCreateAnother}
+        onClose={() => setShowCreateAnother(false)}
+        onSelectType={handleCreateAnother}
+      />
+
+      <TranscriptModal
+        isOpen={showTranscript}
+        onClose={() => setShowTranscript(false)}
+        transcript={generatedTranscript}
+      />
     </div>
   );
 }

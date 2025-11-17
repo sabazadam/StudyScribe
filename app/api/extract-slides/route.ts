@@ -2,6 +2,48 @@ import { NextRequest, NextResponse } from 'next/server';
 import JSZip from 'jszip';
 import { parseStringPromise } from 'xml2js';
 
+// PDF-parse module initialization with workaround for debug bug
+// We mock fs.readFileSync ONLY during module load to prevent the debug file error
+// This is safer than mocking on every request (no race conditions)
+let pdfParse: any;
+
+// Only mock during initial module load
+if (typeof pdfParse === 'undefined') {
+  const fs = require('fs');
+  const originalReadFileSync = fs.readFileSync;
+
+  // Temporarily mock readFileSync to ignore the debug file
+  fs.readFileSync = function(path: string, ...args: any[]) {
+    if (typeof path === 'string' && path.includes('test/data/05-versions-space.pdf')) {
+      // Return empty buffer for the debug file that pdf-parse tries to load
+      return Buffer.from('');
+    }
+    return originalReadFileSync.call(fs, path, ...args);
+  };
+
+  try {
+    // Load pdf-parse with the mock in place
+    pdfParse = require('pdf-parse');
+  } finally {
+    // Immediately restore original function
+    fs.readFileSync = originalReadFileSync;
+  }
+}
+
+// File upload validation constants
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB per file
+const MAX_FILES = 20;
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+  'application/vnd.ms-powerpoint', // .ppt
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp'
+];
+
 /**
  * API endpoint to extract text from slide files (PPTX, PDF)
  * Accepts multipart/form-data with file uploads
@@ -20,6 +62,37 @@ export async function POST(request: NextRequest) {
         { error: 'No files provided' },
         { status: 400 }
       );
+    }
+
+    // Validate file count
+    if (files.length > MAX_FILES) {
+      return NextResponse.json(
+        { error: `Maximum ${MAX_FILES} files allowed. You uploaded ${files.length} files.` },
+        { status: 400 }
+      );
+    }
+
+    // Validate each file
+    for (const file of files) {
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json(
+          {
+            error: `File "${file.name}" exceeds the ${MAX_FILE_SIZE / 1024 / 1024}MB size limit. File size: ${(file.size / 1024 / 1024).toFixed(2)}MB`
+          },
+          { status: 400 }
+        );
+      }
+
+      // Check MIME type
+      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        return NextResponse.json(
+          {
+            error: `File "${file.name}" has unsupported type: ${file.type}. Allowed types: PDF, PPTX, and images (JPEG, PNG, GIF, WebP)`
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const results = [];
@@ -132,7 +205,8 @@ function getFileType(fileName: string): 'pdf' | 'pptx' | 'image' | 'unknown' {
 }
 
 /**
- * Extract text from PDF file using pdf-parse 1.1.1
+ * Extract text from PDF file using pdf-parse
+ * Note: pdf-parse module is loaded at module-level with fs mocking workaround
  */
 async function extractPDFText(file: File): Promise<string> {
   try {
@@ -141,51 +215,35 @@ async function extractPDFText(file: File): Promise<string> {
     // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    console.log('extractPDFText: Buffer created, size:', buffer.length);
+    console.log('extractPDFText: PDF loaded, size:', buffer.length, 'bytes');
 
-    // Load pdf-parse using require (CommonJS)
-    // pdf-parse 1.1.1 is a simple CommonJS module that exports a function directly
-    const pdfParse = require('pdf-parse');
-    console.log('extractPDFText: pdf-parse loaded, type:', typeof pdfParse);
+    // Use the pre-loaded pdfParse module (loaded at module-level with workaround)
+    const data = await pdfParse(buffer, {
+      max: 0, // Parse all pages
+    });
 
-    // Parse PDF - pdf-parse 1.1.1 is called directly as a function
-    console.log('extractPDFText: Parsing PDF...');
-    const data = await pdfParse(buffer);
-
-    console.log('extractPDFText: PDF parsed successfully!');
-    console.log('extractPDFText: Pages:', data.numpages);
-    console.log('extractPDFText: Text length:', data.text ? data.text.length : 0);
+    console.log(`extractPDFText: PDF parsed - ${data.numpages} pages`);
 
     if (!data || !data.text) {
       console.warn('extractPDFText: No text found in PDF');
       return '';
     }
 
-    // Extract and clean text
-    let text = data.text;
-
-    if (!text || text.trim().length === 0) {
-      console.warn('extractPDFText: PDF text is empty after extraction');
-      return '';
-    }
-
     // Clean up the text
-    text = text
-      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-      .replace(/\n{3,}/g, '\n\n') // Replace multiple newlines with double newline
+    let text = data.text
+      .replace(/\s+/g, ' ')  // Multiple spaces → single space
       .trim();
 
-    console.log('extractPDFText: Final text length:', text.length);
-    console.log('extractPDFText: Word count:', text.split(/\s+/).length);
+    const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
+    console.log(`extractPDFText: SUCCESS! Extracted ${wordCount} words from ${data.numpages} pages`);
+    console.log(`extractPDFText: Preview: ${text.substring(0, 150)}...`);
 
     return text;
-  } catch (error: any) {
-    console.error('extractPDFText: Error occurred');
-    console.error('extractPDFText: Error message:', error.message);
-    console.error('extractPDFText: Error stack:', error.stack);
 
-    // Return empty string instead of throwing to allow fallback to vision AI
-    console.warn('extractPDFText: Returning empty string due to error');
+  } catch (error) {
+    const err = error as Error;
+    console.error('extractPDFText: FAILED -', err.message);
+    console.error('extractPDFText: Stack:', err.stack);
     return '';
   }
 }
@@ -357,14 +415,31 @@ async function extractTextFromSlideXML(xmlContent: string): Promise<string> {
 
 /**
  * OPTIONS handler for CORS
+ * In development, allows localhost. In production, restricts to same origin only.
  */
-export async function OPTIONS() {
+export async function OPTIONS(request: NextRequest) {
+  const origin = request.headers.get('origin');
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  // In development, allow localhost origins
+  const allowedOrigins = isDevelopment
+    ? ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000']
+    : []; // In production, same-origin only (no CORS header needed)
+
+  const allowedOrigin = allowedOrigins.includes(origin || '') ? origin : null;
+
+  const headers: Record<string, string> = {
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+
+  // Only add CORS header if origin is allowed
+  if (allowedOrigin) {
+    headers['Access-Control-Allow-Origin'] = allowedOrigin;
+  }
+
   return new NextResponse(null, {
     status: 200,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    },
+    headers,
   });
 }
