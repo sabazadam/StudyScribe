@@ -120,25 +120,65 @@ export function createEnhancedPrompt(
 export function validateContext(sources: ContextSources): {
   valid: boolean;
   message?: string;
+  details?: string[];
 } {
   // Check if at least one source has content
   const hasTranscript = !!(sources.transcript && sources.transcript.trim().length >= 50);
   const hasSlideText = !!(sources.slideText && sources.slideText.trim().length >= 50);
   const hasImageAnalysis = !!(sources.imageAnalysis && sources.imageAnalysis.trim().length >= 50);
 
+  const details: string[] = [];
+
+  // Provide specific feedback about each source
+  if (sources.transcript) {
+    if (sources.transcript.trim().length < 50) {
+      details.push('• Audio transcript is too short (less than 50 characters). The audio may have failed to transcribe or was too brief.');
+    }
+  }
+
+  if (sources.slideText) {
+    if (sources.slideText.trim().length < 50) {
+      details.push('• Slide content is too short. PDF may be image-based, scanned, or contain mostly graphics. Try uploading images separately.');
+    }
+  }
+
+  if (sources.imageAnalysis) {
+    if (sources.imageAnalysis.trim().length < 50) {
+      details.push('• Image analysis returned minimal content. Images may be unclear or lack educational content.');
+    }
+  }
+
   if (!hasTranscript && !hasSlideText && !hasImageAnalysis) {
     return {
       valid: false,
-      message: 'Not enough content provided. Please ensure at least one source (audio, slides, or photos) has sufficient content.',
+      message: 'Insufficient content: All sources are empty or too short',
+      details: details.length > 0 ? details : [
+        '• No valid content extracted from any source',
+        '• Ensure files contain readable text or clear images',
+        '• For PDFs: Check that text is selectable (not scanned)',
+        '• For audio: Ensure clear speech and sufficient duration',
+        '• For images: Use clear, well-lit photos of educational content'
+      ]
     };
   }
 
   const mergedContext = mergeContexts(sources);
 
   if (mergedContext.stats.totalWords < 100) {
+    const sources: string[] = [];
+    if (hasTranscript) sources.push(`transcript (${mergedContext.stats.transcriptWords} words)`);
+    if (hasSlideText) sources.push(`slides (${mergedContext.stats.slideWords} words)`);
+    if (hasImageAnalysis) sources.push(`images (${mergedContext.stats.imageWords} words)`);
+
     return {
       valid: false,
-      message: 'Not enough content to generate study materials. Please provide more detailed content.',
+      message: `Insufficient content: Only ${mergedContext.stats.totalWords} words extracted`,
+      details: [
+        `• Current sources: ${sources.join(', ')}`,
+        '• Need at least 100 words to generate comprehensive study materials',
+        '• Try adding more content sources or longer materials',
+        ...details
+      ]
     };
   }
 

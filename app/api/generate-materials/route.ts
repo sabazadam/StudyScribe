@@ -311,14 +311,59 @@ ${content}
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { transcript, slideText, imageAnalysis, materialType, customPrompt } = body;
+    const { transcript, slideText, imageAnalysis, materialType, customPrompt, extractionErrors } = body;
 
-    // Check if at least one content source is provided
-    if ((!transcript || transcript.trim().length === 0) &&
-        (!slideText || slideText.trim().length === 0) &&
-        (!imageAnalysis || imageAnalysis.trim().length === 0)) {
+    // Check what sources were provided and which failed
+    const hasTranscript = transcript && transcript.trim().length > 0;
+    const hasSlideText = slideText && slideText.trim().length > 0;
+    const hasImageAnalysis = imageAnalysis && imageAnalysis.trim().length > 0;
+
+    // If nothing was extracted, provide specific feedback
+    if (!hasTranscript && !hasSlideText && !hasImageAnalysis) {
+      // Build a helpful error message based on what was attempted
+      const errorDetails: string[] = [];
+
+      // Check if extraction errors were passed from the frontend
+      if (extractionErrors) {
+        if (Array.isArray(extractionErrors)) {
+          extractionErrors.forEach((err: any) => {
+            if (err.type === 'pdf' && err.error) {
+              if (err.error.includes('extractable text')) {
+                errorDetails.push('• PDF file contains only images with no selectable text. Try uploading the images separately or use a PDF with text content.');
+              } else if (err.error.includes('timeout')) {
+                errorDetails.push('• PDF processing timed out. The file may be too large or corrupted. Try a smaller file.');
+              } else if (err.error.includes('too short')) {
+                errorDetails.push('• PDF extraction returned minimal text. The file may be mostly images or have encoding issues.');
+              } else {
+                errorDetails.push(`• PDF extraction failed: ${err.error}`);
+              }
+            } else if (err.type === 'pptx' && err.error) {
+              errorDetails.push(`• PowerPoint extraction failed: ${err.error}`);
+            }
+          });
+        } else if (typeof extractionErrors === 'string') {
+          errorDetails.push(`• File extraction failed: ${extractionErrors}`);
+        }
+      }
+
+      // If no specific errors, provide general guidance
+      if (errorDetails.length === 0) {
+        errorDetails.push('• No content was extracted from the uploaded files.');
+        errorDetails.push('• If you uploaded a PDF, it may be image-based or scanned. Try extracting images from the PDF and uploading them separately.');
+        errorDetails.push('• Ensure your files contain actual text or visual content, not empty pages.');
+      }
+
       return NextResponse.json(
-        { error: 'At least one content source (transcript, slideText, or imageAnalysis) must be provided' },
+        {
+          error: 'Unable to generate study materials: No content extracted',
+          details: errorDetails.join('\n'),
+          suggestions: [
+            'Upload a different file format (PDF with text, PPTX, or images)',
+            'Check that your PDF has selectable text (not just scanned images)',
+            'Try uploading course materials in multiple formats',
+            'Upload whiteboard photos or lecture slides as separate images'
+          ]
+        },
         { status: 400 }
       );
     }
@@ -335,7 +380,7 @@ export async function POST(request: NextRequest) {
       imageAnalysis: imageAnalysis || '',
     });
 
-    // Validate context
+    // Validate context with detailed feedback
     const validation = validateContext({
       transcript: transcript || '',
       slideText: slideText || '',
@@ -343,7 +388,16 @@ export async function POST(request: NextRequest) {
     });
     if (!validation.valid) {
       return NextResponse.json(
-        { error: validation.message },
+        {
+          error: validation.message || 'Validation failed',
+          details: validation.details ? validation.details.join('\n') : undefined,
+          suggestions: [
+            'Upload files with more content',
+            'Ensure PDFs have selectable text (not scanned images)',
+            'Try combining multiple sources (audio + slides + photos)',
+            'Check that uploaded files are not corrupted or empty'
+          ]
+        },
         { status: 400 }
       );
     }

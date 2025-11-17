@@ -2,6 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import JSZip from 'jszip';
 import { parseStringPromise } from 'xml2js';
 
+// Configure route timeout (60 seconds for large file processing)
+export const maxDuration = 60;
+
+// Memory management helper
+function forceGarbageCollection() {
+  if (global.gc) {
+    try {
+      global.gc();
+      console.log('✓ Garbage collection completed');
+    } catch (err) {
+      console.warn('⚠️  Garbage collection failed:', err);
+    }
+  }
+}
+
+// Add process-level error handlers to prevent server crashes
+if (typeof process !== 'undefined') {
+  // Prevent server crash from unhandled promise rejections
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('⚠️  Unhandled Rejection in extract-slides:', reason);
+    console.error('Promise:', promise);
+    // Don't exit - log and continue
+  });
+
+  // Prevent server crash from uncaught exceptions
+  process.on('uncaughtException', (error) => {
+    console.error('⚠️  Uncaught Exception in extract-slides:', error);
+    console.error('Stack:', error.stack);
+    // Don't exit - log and continue
+  });
+}
+
 // PDF-parse module initialization with workaround for debug bug
 // We mock fs.readFileSync ONLY during module load to prevent the debug file error
 // This is safer than mocking on every request (no race conditions)
@@ -108,22 +140,26 @@ export async function POST(request: NextRequest) {
 
       try {
         let extractedText = '';
+        let extractionError: string | null = null;
 
         if (fileType === 'pdf') {
           console.log('Extracting PDF...');
-          extractedText = await extractPDFText(file);
-          console.log('PDF extracted, text length:', extractedText.length);
-
-          if (!extractedText || extractedText.trim().length === 0) {
-            console.warn(`PDF ${fileName} returned empty text - may need vision AI fallback`);
+          try {
+            extractedText = await extractPDFText(file);
+            console.log('PDF extracted, text length:', extractedText.length);
+          } catch (pdfError: any) {
+            // Capture specific PDF error for user feedback
+            extractionError = pdfError.message;
+            console.error(`PDF extraction failed for ${fileName}:`, extractionError);
           }
         } else if (fileType === 'pptx') {
           console.log('Extracting PPTX...');
-          extractedText = await extractPPTXText(file);
-          console.log('PPTX extracted, text length:', extractedText.length);
-
-          if (!extractedText || extractedText.trim().length === 0) {
-            console.warn(`PPTX ${fileName} returned empty text - may need vision AI fallback`);
+          try {
+            extractedText = await extractPPTXText(file);
+            console.log('PPTX extracted, text length:', extractedText.length);
+          } catch (pptxError: any) {
+            extractionError = pptxError.message || 'PPTX extraction failed';
+            console.error(`PPTX extraction failed for ${fileName}:`, extractionError);
           }
         } else {
           // For images, we'll handle them in the analyze-images endpoint
@@ -144,17 +180,20 @@ export async function POST(request: NextRequest) {
           type: fileType,
           text: extractedText,
           wordCount,
-          // Add a warning if extraction resulted in very little text
-          ...(wordCount < 20 ? { warning: 'Low word count - may benefit from vision AI processing' } : {})
+          // Include error if extraction failed
+          ...(extractionError ? { error: extractionError, warning: 'Extraction failed - please check file' } : {}),
+          // Add a warning if extraction resulted in very little text but no error
+          ...(!extractionError && wordCount > 0 && wordCount < 20 ? { warning: 'Low word count - may benefit from vision AI processing' } : {})
         });
       } catch (error: any) {
-        console.error(`Error extracting ${fileName}:`, error);
+        // This catch block should rarely be hit now that we handle errors in extraction functions
+        console.error(`Unexpected error processing ${fileName}:`, error);
         console.error('Error stack:', error.stack);
         results.push({
           fileName,
           type: fileType,
           text: '',
-          error: error.message || 'Extraction failed',
+          error: `Unexpected error: ${error.message || 'Unknown error'}`,
           wordCount: 0
         });
       }
@@ -171,6 +210,9 @@ export async function POST(request: NextRequest) {
     console.log('Successful extractions:', results.filter(r => r.text).length);
     console.log('Failed extractions:', results.filter(r => r.error).length);
 
+    // Force garbage collection after processing to free memory
+    forceGarbageCollection();
+
     return NextResponse.json({
       success: true,
       results,
@@ -182,6 +224,9 @@ export async function POST(request: NextRequest) {
     console.error('=== EXTRACT-SLIDES API ERROR ===');
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
+
+    // Force garbage collection even on error to free memory
+    forceGarbageCollection();
 
     return NextResponse.json(
       {
@@ -205,36 +250,64 @@ function getFileType(fileName: string): 'pdf' | 'pptx' | 'image' | 'unknown' {
 }
 
 /**
- * Extract text from PDF file using pdf-parse
- * Note: pdf-parse module is loaded at module-level with fs mocking workaround
+ * Extract text from PDF file using pdf-parse with proper error handling and cleanup
+ * @param file - PDF file to extract text from
+ * @returns Promise<string> - Extracted text
+ * @throws Error with descriptive message if extraction fails
  */
 async function extractPDFText(file: File): Promise<string> {
+  let buffer: Buffer | null = null;
+
   try {
-    console.log('extractPDFText: Starting PDF extraction');
+    console.log('extractPDFText: Starting PDF extraction for', file.name);
+
+    // Validate file size before processing
+    const MAX_PDF_SIZE = 50 * 1024 * 1024; // 50MB
+    if (file.size > MAX_PDF_SIZE) {
+      throw new Error(`PDF file too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Maximum: 50MB`);
+    }
 
     // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    buffer = Buffer.from(arrayBuffer);
     console.log('extractPDFText: PDF loaded, size:', buffer.length, 'bytes');
 
-    // Use the pre-loaded pdfParse module (loaded at module-level with workaround)
-    const data = await pdfParse(buffer, {
-      max: 0, // Parse all pages
+    // Create a timeout promise to prevent hanging
+    const TIMEOUT_MS = 30000; // 30 seconds
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('PDF parsing timeout after 30 seconds')), TIMEOUT_MS);
     });
+
+    // Parse PDF with timeout
+    const parsePromise = pdfParse(buffer, {
+      max: 0, // Parse all pages
+      version: 'default'
+    });
+
+    const data = await Promise.race([parsePromise, timeoutPromise]) as any;
 
     console.log(`extractPDFText: PDF parsed - ${data.numpages} pages`);
 
+    // Validate extraction result
     if (!data || !data.text) {
-      console.warn('extractPDFText: No text found in PDF');
-      return '';
+      console.warn('extractPDFText: No text found in PDF - may be image-based or encrypted');
+      throw new Error('PDF contains no extractable text. This may be a scanned document or image-based PDF.');
     }
 
     // Clean up the text
     let text = data.text
       .replace(/\s+/g, ' ')  // Multiple spaces → single space
+      .replace(/\r\n/g, '\n') // Normalize line endings
       .trim();
 
     const wordCount = text.split(/\s+/).filter((w: string) => w.length > 0).length;
+
+    // Validate minimum content
+    if (wordCount < 10) {
+      console.warn(`extractPDFText: Very little text extracted (${wordCount} words) - PDF may be corrupted or image-based`);
+      throw new Error(`Extracted text is too short (${wordCount} words). PDF may be corrupted or image-based.`);
+    }
+
     console.log(`extractPDFText: SUCCESS! Extracted ${wordCount} words from ${data.numpages} pages`);
     console.log(`extractPDFText: Preview: ${text.substring(0, 150)}...`);
 
@@ -244,7 +317,25 @@ async function extractPDFText(file: File): Promise<string> {
     const err = error as Error;
     console.error('extractPDFText: FAILED -', err.message);
     console.error('extractPDFText: Stack:', err.stack);
-    return '';
+
+    // Propagate error with more context
+    if (err.message.includes('timeout')) {
+      throw new Error(`PDF parsing timeout for "${file.name}". File may be corrupted or too complex.`);
+    } else if (err.message.includes('encrypted')) {
+      throw new Error(`PDF "${file.name}" is encrypted or password-protected.`);
+    } else if (err.message.includes('extractable text') || err.message.includes('too short')) {
+      throw err; // Already has good message
+    } else {
+      throw new Error(`Failed to extract text from "${file.name}": ${err.message}`);
+    }
+  } finally {
+    // Explicitly free buffer memory
+    if (buffer) {
+      buffer = null;
+      if (global.gc) {
+        global.gc(); // Force garbage collection if available (node --expose-gc)
+      }
+    }
   }
 }
 

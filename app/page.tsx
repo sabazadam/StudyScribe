@@ -11,6 +11,9 @@ import ChatMessage from '@/components/ui/ChatMessage';
 import FeedbackWidget from '@/components/ui/FeedbackWidget';
 import CreateAnotherModal from '@/components/ui/CreateAnotherModal';
 import TranscriptModal from '@/components/ui/TranscriptModal';
+import FloatingActionBar from '@/components/ui/FloatingActionBar';
+import StepIndicator from '@/components/ui/StepIndicator';
+import Tabs from '@/components/ui/Tabs';
 import { fileToBase64, extractSlideContent, analyzeImageContent } from '@/lib/fileProcessing';
 
 interface MaterialFile {
@@ -543,226 +546,272 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-mesh-academic dark:bg-mesh-academic-dark texture-noise">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      <header className="glass dark:glass-dark border-b border-border-light dark:border-border-dark sticky top-0 z-50 shadow-sm backdrop-blur-lg" role="banner">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-2xl font-heading font-bold text-gradient-academic">
               LectureHelper AI
             </h1>
-            <div className="flex gap-3">
-              <Link
-                href="/materials"
-                className="px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all shadow-sm flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined text-sm">upload</span>
-                Instructors: Upload Materials
-              </Link>
-              <Link
-                href="/hub"
-                className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined text-sm">folder</span>
-                Study Hub
-              </Link>
-            </div>
+            <nav aria-label="Main navigation">
+              <div className="flex gap-3">
+                <Link
+                  href="/materials"
+                  className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2 font-semibold"
+                  aria-label="Upload course materials (for instructors)"
+                >
+                  <span className="material-symbols-outlined text-sm" aria-hidden="true">upload</span>
+                  <span className="hidden md:inline">Instructors: Upload Materials</span>
+                  <span className="md:hidden">Upload</span>
+                </Link>
+                <Link
+                  href="/hub"
+                  className="px-4 py-2 bg-accent hover:bg-accent-dark text-midnight-blue rounded-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2 font-semibold"
+                  aria-label="View your study hub"
+                >
+                  <span className="material-symbols-outlined text-sm" aria-hidden="true">folder</span>
+                  <span className="hidden md:inline">Study Hub</span>
+                  <span className="md:hidden">Hub</span>
+                </Link>
+              </div>
+            </nav>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
+      <main id="main-content" className="container mx-auto px-4 py-8" role="main">
         <div className="max-w-5xl mx-auto">
           {/* Hero Section */}
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-gray-800 mb-4">
-              Transform Your Lectures into Study Materials
+          <div className="text-center mb-12 bg-mesh-hero dark:bg-mesh-academic-dark rounded-3xl p-12 pattern-dots animate-scale-in">
+            <h2 className="text-4xl md:text-5xl font-heading font-bold text-oxford-blue dark:text-text-dark mb-4 animate-slide-up" style={{animationDelay: '100ms'}}>
+              Transform Your Lectures into <span className="text-gradient-accent">Study Materials</span>
             </h2>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-text-muted dark:text-text-dark-muted max-w-2xl mx-auto animate-fade-in" style={{animationDelay: '200ms'}}>
               Upload audio, slides, and photos to generate comprehensive study guides powered by AI
             </p>
           </div>
 
+          {/* Progress Indicator */}
+          <StepIndicator
+            currentStep={currentStep}
+            steps={[
+              {
+                number: 1,
+                label: 'Upload Materials',
+                icon: 'cloud_upload',
+                description: 'Add your lecture files'
+              },
+              {
+                number: 2,
+                label: 'Choose Type',
+                icon: 'category',
+                description: 'Select study material type'
+              },
+              {
+                number: 3,
+                label: 'Processing',
+                icon: 'autorenew',
+                description: 'AI generates content'
+              },
+              {
+                number: 4,
+                label: 'Results',
+                icon: 'task_alt',
+                description: 'Review and save'
+              }
+            ]}
+            allowNavigation={false}
+          />
+
           {/* Step 1: File Upload */}
           {currentStep === 1 && (
           <>
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 border-2 border-purple-100">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-purple-600">school</span>
-                  Use Pre-uploaded Course Materials
-                </h3>
-                <p className="text-gray-600 mt-1">
-                  Select materials your instructor has already uploaded
-                </p>
-              </div>
-              <button
-                onClick={() => setUsePreUploaded(!usePreUploaded)}
-                className={`relative inline-flex h-12 w-24 items-center rounded-full transition-colors ${
-                  usePreUploaded ? 'bg-purple-600' : 'bg-gray-300'
-                }`}
-              >
-                <span
-                  className={`inline-block h-10 w-10 transform rounded-full bg-white transition-transform ${
-                    usePreUploaded ? 'translate-x-12' : 'translate-x-1'
-                  }`}
-                >
-                  {usePreUploaded && (
-                    <span className="material-symbols-outlined text-purple-600 text-center leading-10">
-                      check
-                    </span>
-                  )}
-                </span>
-              </button>
-            </div>
+          <div className="bg-card-light dark:bg-card-dark rounded-2xl shadow-lg p-8 mb-8 card animate-slide-up">
+            <h3 className="text-2xl font-heading font-bold text-oxford-blue dark:text-text-dark mb-6 flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">cloud_upload</span>
+              Add Your Lecture Materials
+            </h3>
 
-            {usePreUploaded ? (
-              <div className="space-y-4 mt-6">
-                {/* Instructor Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    1. Select Instructor
-                  </label>
-                  <select
-                    value={selectedInstructor}
-                    onChange={(e) => {
-                      setSelectedInstructor(e.target.value);
-                      setSelectedWeek(null);
-                      setSelectedLecture(null);
-                    }}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  >
-                    <option value="">Choose an instructor...</option>
-                    {instructors.map((name) => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
-                </div>
+            <Tabs
+              defaultTab="manual"
+              tabs={[
+                {
+                  id: 'manual',
+                  label: 'Upload Files',
+                  icon: 'upload_file',
+                  badge: 'Recommended',
+                  content: (
+                    <div className="space-y-6 animate-fade-in">
+                      <p className="text-text-muted dark:text-text-dark-muted mb-4">
+                        Upload your own lecture files for personalized study materials
+                      </p>
 
-                {/* Week Selection */}
-                {selectedInstructor && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      2. Select Week
-                    </label>
-                    <select
-                      value={selectedWeek ?? ''}
-                      onChange={(e) => {
-                        setSelectedWeek(Number(e.target.value));
-                        setSelectedLecture(null);
-                      }}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    >
-                      <option value="">Choose a week...</option>
-                      {availableWeeks.map((week) => (
-                        <option key={week} value={week}>Week {week}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                      {/* Audio/Video Upload */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="material-symbols-outlined text-cerulean">videocam</span>
+                          <h4 className="text-lg font-semibold text-oxford-blue dark:text-text-dark">Audio/Video Recording</h4>
+                          <span className="badge badge-primary">
+                            Recommended
+                          </span>
+                        </div>
+                        <p className="text-sm text-text-muted dark:text-text-dark-muted mb-2">
+                          Upload lecture recording for AI transcription and analysis
+                        </p>
+                        <FileUploader onFileSelect={setAudioFile} />
+                      </div>
 
-                {/* Lecture Selection */}
-                {selectedWeek !== null && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      3. Select Lecture
-                    </label>
-                    <select
-                      value={selectedLecture ?? ''}
-                      onChange={(e) => setSelectedLecture(Number(e.target.value))}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    >
-                      <option value="">Choose a lecture...</option>
-                      {availableLectures.map((lecture) => (
-                        <option key={lecture} value={lecture}>Lecture {lecture}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                      {/* Slides Upload */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="material-symbols-outlined text-accent">description</span>
+                          <h4 className="text-lg font-semibold text-oxford-blue dark:text-text-dark">Lecture Slides</h4>
+                          <span className="px-2 py-0.5 bg-background text-text-muted text-xs rounded-full font-medium border border-border-light">
+                            Optional
+                          </span>
+                        </div>
+                        <p className="text-sm text-text-muted dark:text-text-dark-muted mb-2">
+                          Add slides for better context and comprehensive materials
+                        </p>
+                        <SlideUploader onFilesSelect={setSlideFiles} />
+                      </div>
 
-                {selectedLecture !== null && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
-                    <p className="text-green-800 flex items-center gap-2">
-                      <span className="material-symbols-outlined">check_circle</span>
-                      Materials loaded! You can now generate your study materials below.
-                    </p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-6">
-                <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                  <span className="material-symbols-outlined">info</span>
-                  Why use pre-uploaded materials?
-                </h4>
-                <ul className="text-sm text-blue-800 space-y-1 ml-6 list-disc">
-                  <li>Save time - no need to upload files yourself</li>
-                  <li>Access official course materials from your instructor</li>
-                  <li>Get consistent study materials for your entire class</li>
-                </ul>
-              </div>
-            )}
+                      {/* Photos Upload */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="material-symbols-outlined text-success">image</span>
+                          <h4 className="text-lg font-semibold text-oxford-blue dark:text-text-dark">Lecture Photos</h4>
+                          <span className="px-2 py-0.5 bg-background text-text-muted text-xs rounded-full font-medium border border-border-light">
+                            Optional
+                          </span>
+                        </div>
+                        <p className="text-sm text-text-muted dark:text-text-dark-muted mb-2">
+                          Include whiteboard photos or diagrams for visual learning
+                        </p>
+                        <ImageUploader onImagesSelect={setPhotoFiles} />
+                      </div>
+                    </div>
+                  )
+                },
+                {
+                  id: 'instructor',
+                  label: 'Instructor Materials',
+                  icon: 'school',
+                  content: (
+                    <div className="space-y-4 animate-fade-in">
+                      <p className="text-text-muted dark:text-text-dark-muted mb-4">
+                        Use materials already uploaded by your instructor for this course
+                      </p>
+
+                      <div className="bg-info/5 border border-info/20 rounded-lg p-4 mb-4">
+                        <h4 className="font-semibold text-oxford-blue dark:text-text-dark mb-2 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-info">info</span>
+                          Benefits of Instructor Materials
+                        </h4>
+                        <ul className="text-sm text-text-muted dark:text-text-dark-muted space-y-1 ml-6 list-disc">
+                          <li>Save time - materials are already organized</li>
+                          <li>Access official course content</li>
+                          <li>Consistent with class materials</li>
+                        </ul>
+                      </div>
+
+                      {/* Instructor Selection */}
+                      <div>
+                        <label className="block text-sm font-semibold text-oxford-blue dark:text-text-dark mb-2">
+                          1. Select Instructor
+                        </label>
+                        <select
+                          value={selectedInstructor}
+                          onChange={(e) => {
+                            setSelectedInstructor(e.target.value);
+                            setSelectedWeek(null);
+                            setSelectedLecture(null);
+                            setUsePreUploaded(true);
+                          }}
+                          className="w-full px-4 py-3 border-2 border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background dark:bg-card-dark text-oxford-blue dark:text-text-dark"
+                        >
+                          <option value="">Choose an instructor...</option>
+                          {instructors.map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Week Selection */}
+                      {selectedInstructor && (
+                        <div className="animate-slide-up">
+                          <label className="block text-sm font-semibold text-oxford-blue dark:text-text-dark mb-2">
+                            2. Select Week
+                          </label>
+                          <select
+                            value={selectedWeek ?? ''}
+                            onChange={(e) => {
+                              setSelectedWeek(Number(e.target.value));
+                              setSelectedLecture(null);
+                            }}
+                            className="w-full px-4 py-3 border-2 border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background dark:bg-card-dark text-oxford-blue dark:text-text-dark"
+                          >
+                            <option value="">Choose a week...</option>
+                            {availableWeeks.map((week) => (
+                              <option key={week} value={week}>Week {week}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Lecture Selection */}
+                      {selectedWeek !== null && (
+                        <div className="animate-slide-up">
+                          <label className="block text-sm font-semibold text-oxford-blue dark:text-text-dark mb-2">
+                            3. Select Lecture
+                          </label>
+                          <select
+                            value={selectedLecture ?? ''}
+                            onChange={(e) => setSelectedLecture(Number(e.target.value))}
+                            className="w-full px-4 py-3 border-2 border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background dark:bg-card-dark text-oxford-blue dark:text-text-dark"
+                          >
+                            <option value="">Choose a lecture...</option>
+                            {availableLectures.map((lecture) => (
+                              <option key={lecture} value={lecture}>Lecture {lecture}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {selectedLecture !== null && (
+                        <div className="bg-success/10 border border-success/30 rounded-lg p-4 mt-4 animate-success-pop">
+                          <p className="text-success-dark dark:text-success flex items-center gap-2 font-semibold">
+                            <span className="material-symbols-outlined">check_circle</span>
+                            Materials loaded successfully!
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+              ]}
+            />
+
           </div>
 
-          {/* Manual Upload Section */}
-          {!usePreUploaded && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <span className="material-symbols-outlined text-blue-600">cloud_upload</span>
-                Upload Your Own Files
-              </h3>
-
-              <div className="space-y-6">
-                {/* Audio/Video Upload */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="material-symbols-outlined text-blue-600">videocam</span>
-                    <h4 className="text-lg font-semibold">Audio/Video Recording</h4>
-                    <span className="px-2 py-0.5 bg-red-100 text-red-800 text-xs rounded-full font-medium">
-                      Required
-                    </span>
-                  </div>
-                  <FileUploader onFileSelect={setAudioFile} />
-                </div>
-
-                {/* Slides Upload */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="material-symbols-outlined text-purple-600">description</span>
-                    <h4 className="text-lg font-semibold">Lecture Slides</h4>
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">
-                      Optional
-                    </span>
-                  </div>
-                  <SlideUploader onFilesSelect={setSlideFiles} />
-                </div>
-
-                {/* Photos Upload */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="material-symbols-outlined text-green-600">image</span>
-                    <h4 className="text-lg font-semibold">Lecture Photos</h4>
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-xs rounded-full font-medium">
-                      Optional
-                    </span>
-                  </div>
-                  <ImageUploader onImagesSelect={setPhotoFiles} />
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Continue Button */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+          <div className="mt-6">
             <button
               onClick={handleContinue}
-              disabled={!audioFile && slideFiles.length === 0 && photoFiles.length === 0}
-              className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+              disabled={!audioFile && slideFiles.length === 0 && photoFiles.length === 0 && selectedLecture === null}
+              className="w-full btn-primary text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              aria-label="Continue to material type selection"
+              aria-disabled={!audioFile && slideFiles.length === 0 && photoFiles.length === 0 && selectedLecture === null}
             >
               <span>Continue to Select Material Type</span>
-              <span className="material-symbols-outlined">arrow_forward</span>
+              <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
             </button>
+            {!audioFile && slideFiles.length === 0 && photoFiles.length === 0 && selectedLecture === null && (
+              <p className="text-sm text-text-muted dark:text-text-dark-muted text-center mt-3" role="status" aria-live="polite">
+                Please upload files or select instructor materials to continue
+              </p>
+            )}
           </div>
           </>
           )}
@@ -874,91 +923,121 @@ export default function Home() {
 
           {/* Step 4: Results */}
           {currentStep === 4 && result && (
-            <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-800">Your Study Materials</h3>
-              </div>
-
-              <ChatMessage
-                content={result}
-                role="assistant"
-                timestamp={new Date().toISOString()}
-              />
-
-              {/* Action Buttons */}
-              <div className="mt-8 grid grid-cols-2 md:grid-cols-3 gap-3">
-                <button
-                  onClick={handleSaveToHub}
-                  disabled={isSaving || isSaved}
-                  className={`px-4 py-3 rounded-lg transition-all flex items-center justify-center gap-2 font-medium ${
-                    isSaved
-                      ? 'bg-green-100 text-green-800 cursor-default'
-                      : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700 shadow-md hover:shadow-lg'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-sm">
-                    {isSaved ? 'check_circle' : 'save'}
-                  </span>
-                  {isSaving ? 'Saving...' : isSaved ? 'Saved!' : 'Save to Hub'}
-                </button>
-
-                {generatedTranscript && (
+            <>
+              <div className="bg-card-light dark:bg-card-dark rounded-2xl shadow-lg p-8 mb-32 animate-scale-in card">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-heading font-bold text-oxford-blue dark:text-text-dark">Your Study Materials</h3>
                   <button
-                    onClick={() => setShowTranscript(true)}
-                    className="px-4 py-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium border border-blue-200"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="px-3 py-2 text-sm text-primary hover:text-primary-dark flex items-center gap-1 transition-colors"
                   >
-                    <span className="material-symbols-outlined text-sm">article</span>
-                    View Transcript
+                    <span className="material-symbols-outlined text-sm">arrow_upward</span>
+                    Scroll to Top
                   </button>
-                )}
+                </div>
 
-                <button
-                  onClick={() => {
-                    const blob = new Blob([result], { type: 'text/markdown' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `study-material-${new Date().toISOString().split('T')[0]}.md`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="px-4 py-3 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium border border-purple-200"
-                >
-                  <span className="material-symbols-outlined text-sm">download</span>
-                  Download
-                </button>
+                {/* Content Area - Scrollable */}
+                <div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                  <ChatMessage
+                    content={result}
+                    role="assistant"
+                    timestamp={new Date().toISOString()}
+                  />
+                </div>
 
-                <button
-                  onClick={() => setShowCreateAnother(true)}
-                  className="px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium border border-green-200"
-                >
-                  <span className="material-symbols-outlined text-sm">add_circle</span>
-                  Create Another
-                </button>
-
-                <button
-                  onClick={handleStartOver}
-                  className="px-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium border border-gray-200"
-                >
-                  <span className="material-symbols-outlined text-sm">refresh</span>
-                  Start Over
-                </button>
+                {/* Feedback Widget */}
+                <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark">
+                  <FeedbackWidget
+                    materialType={outputType}
+                    onFeedbackSubmit={(rating, comment) => {
+                      console.log('Feedback:', { rating, comment, outputType });
+                    }}
+                  />
+                </div>
               </div>
 
-              <div className="mt-6">
-                <FeedbackWidget
-                  materialType={outputType}
-                  onFeedbackSubmit={(rating, comment) => {
-                    console.log('Feedback:', { rating, comment, outputType });
-                  }}
-                />
-              </div>
-            </div>
+              {/* Floating Action Bar */}
+              <FloatingActionBar isVisible={true}>
+                <nav aria-label="Study material actions">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    {/* Primary Actions */}
+                    <div className="flex flex-wrap items-center gap-3" role="group" aria-label="Primary actions">
+                      <button
+                        onClick={handleSaveToHub}
+                        disabled={isSaving || isSaved}
+                        className={`px-6 py-3 rounded-lg transition-all flex items-center gap-2 font-semibold shadow-md hover:shadow-lg min-h-[48px] ${
+                          isSaved
+                            ? 'bg-success text-white cursor-default animate-success-pop'
+                            : 'btn-primary'
+                        }`}
+                        aria-label={isSaved ? 'Material saved to hub' : 'Save material to study hub'}
+                        aria-disabled={isSaving || isSaved}
+                      >
+                        <span className="material-symbols-outlined text-sm" aria-hidden="true">
+                          {isSaved ? 'check_circle' : 'save'}
+                        </span>
+                        {isSaving ? 'Saving...' : isSaved ? 'Saved to Hub!' : 'Save to Hub'}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const blob = new Blob([result], { type: 'text/markdown' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `study-material-${new Date().toISOString().split('T')[0]}.md`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="btn-outline min-h-[48px]"
+                        aria-label="Download study material as markdown file"
+                      >
+                        <span className="material-symbols-outlined text-sm" aria-hidden="true">download</span>
+                        <span className="hidden sm:inline">Download</span>
+                      </button>
+
+                      <button
+                        onClick={() => setShowCreateAnother(true)}
+                        className="px-4 py-3 bg-accent/10 hover:bg-accent/20 text-accent-dark dark:text-accent-light rounded-lg transition-all flex items-center gap-2 font-semibold border border-accent/30 min-h-[48px]"
+                        aria-label="Create another study material from the same lecture"
+                      >
+                        <span className="material-symbols-outlined text-sm" aria-hidden="true">add_circle</span>
+                        <span className="hidden sm:inline">Create Another</span>
+                        <span className="sm:hidden">New</span>
+                      </button>
+                    </div>
+
+                    {/* Secondary Actions */}
+                    <div className="flex items-center gap-3" role="group" aria-label="Secondary actions">
+                      {generatedTranscript && (
+                        <button
+                          onClick={() => setShowTranscript(true)}
+                          className="btn-ghost text-sm min-h-[48px]"
+                          aria-label="View lecture transcript"
+                        >
+                          <span className="material-symbols-outlined text-sm" aria-hidden="true">article</span>
+                          <span className="hidden sm:inline">Transcript</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={handleStartOver}
+                        className="btn-ghost text-sm min-h-[48px]"
+                        aria-label="Start over and create new material"
+                      >
+                        <span className="material-symbols-outlined text-sm" aria-hidden="true">refresh</span>
+                        <span className="hidden sm:inline">Start Over</span>
+                      </button>
+                    </div>
+                  </div>
+                </nav>
+              </FloatingActionBar>
+            </>
           )}
         </div>
-      </div>
+      </main>
 
       {/* Modals */}
       <CreateAnotherModal

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import MaterialModal from '@/components/ui/MaterialModal';
+import HubToolbar, { ViewMode, SortOption } from '@/components/ui/HubToolbar';
 import { SavedStudyMaterial } from '@/lib/studyMaterialStorage';
 
 export default function StudyHub() {
@@ -10,6 +11,8 @@ export default function StudyHub() {
   const [filteredMaterials, setFilteredMaterials] = useState<SavedStudyMaterial[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [sortBy, setSortBy] = useState<SortOption>('recent');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -22,10 +25,10 @@ export default function StudyHub() {
     loadMaterials();
   }, []);
 
-  // Apply filters when materials, search, or filter changes
+  // Apply filters when materials, search, filter, or sort changes
   useEffect(() => {
     applyFilters();
-  }, [materials, searchQuery, filter]);
+  }, [materials, searchQuery, filter, sortBy]);
 
   const loadMaterials = async () => {
     setLoading(true);
@@ -66,6 +69,24 @@ export default function StudyHub() {
       filtered = filtered.filter(m => m.materialType === filter);
     }
 
+    // Apply sorting
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'recent':
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'oldest':
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        case 'a-z':
+          return a.title.localeCompare(b.title);
+        case 'z-a':
+          return b.title.localeCompare(a.title);
+        case 'type':
+          return a.materialType.localeCompare(b.materialType);
+        default:
+          return 0;
+      }
+    });
+
     setFilteredMaterials(filtered);
   };
 
@@ -100,60 +121,51 @@ export default function StudyHub() {
 
   const getTypeColor = (type: string) => {
     const colors = {
-      'exam': 'text-purple-600',
-      'summary': 'text-blue-600',
-      'quiz': 'text-green-600',
-      'mock-exam': 'text-orange-600',
-      'explain': 'text-pink-600',
-      'custom': 'text-indigo-600'
+      'exam': 'text-primary',
+      'summary': 'text-cerulean',
+      'quiz': 'text-success',
+      'mock-exam': 'text-warning',
+      'explain': 'text-accent',
+      'custom': 'text-info'
     };
-    return colors[type as keyof typeof colors] || 'text-gray-600';
+    return colors[type as keyof typeof colors] || 'text-text-muted';
+  };
+
+  const getTypeBadgeClass = (type: string) => {
+    const classes = {
+      'exam': 'badge-primary',
+      'summary': 'bg-cerulean/10 text-cerulean border-cerulean/20',
+      'quiz': 'badge-success',
+      'mock-exam': 'badge-warning',
+      'explain': 'badge-accent',
+      'custom': 'bg-info/10 text-info border-info/20'
+    };
+    return `badge ${classes[type as keyof typeof classes] || 'bg-text-muted/10 text-text-muted border-text-muted/20'}`;
   };
 
   return (
     <Layout>
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="p-4 sm:p-6 lg:p-8 bg-mesh-academic dark:bg-mesh-academic-dark min-h-screen">
         <div className="container mx-auto max-w-7xl">
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">My Study Hub</h2>
-
-            <div className="flex items-center gap-4">
-              {/* Search */}
-              <div className="relative flex-grow max-w-sm">
-                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  search
-                </span>
-                <input
-                  type="search"
-                  placeholder="Search your materials..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-white border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 shadow-sm"
-                />
-              </div>
-
-              {/* Filter */}
-              <div className="relative">
-                <select
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  className="appearance-none bg-white border border-gray-200 rounded-lg pl-4 pr-10 py-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
-                >
-                  <option value="all">All Types</option>
-                  <option value="exam">Exam Prep</option>
-                  <option value="summary">Summaries</option>
-                  <option value="quiz">Quizzes</option>
-                  <option value="mock-exam">Mock Exams</option>
-                  <option value="explain">Explanations</option>
-                  <option value="custom">Custom</option>
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                  expand_more
-                </span>
-              </div>
-            </div>
+          <div className="mb-8 animate-slide-up">
+            <h2 className="text-4xl font-heading font-bold text-gradient-academic mb-2">My Study Hub</h2>
+            <p className="text-text-muted dark:text-text-dark-muted">Manage and organize your AI-generated study materials</p>
           </div>
+
+          {/* Toolbar */}
+          <HubToolbar
+            viewMode={viewMode}
+            sortBy={sortBy}
+            searchQuery={searchQuery}
+            filter={filter}
+            onViewModeChange={setViewMode}
+            onSortChange={setSortBy}
+            onSearchChange={setSearchQuery}
+            onFilterChange={setFilter}
+            totalCount={materials.length}
+            filteredCount={filteredMaterials.length}
+          />
 
           {/* Loading State */}
           {loading && (

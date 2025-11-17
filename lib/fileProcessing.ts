@@ -60,6 +60,96 @@ export function separateSlideFiles(files: File[]): {
 }
 
 /**
+ * Parse and format API error responses for user display
+ */
+function parseAPIError(error: any): {
+  message: string;
+  isRecoverable: boolean;
+  suggestions?: string[];
+} {
+  // Handle structured error responses from our improved APIs
+  if (error.details || error.suggestions) {
+    return {
+      message: error.error || 'An error occurred',
+      isRecoverable: true,
+      suggestions: error.suggestions || []
+    };
+  }
+
+  // Handle simple error strings
+  const errorMsg = error.error || error.message || String(error);
+
+  // Categorize errors
+  if (errorMsg.includes('timeout') || errorMsg.includes('timed out')) {
+    return {
+      message: 'File processing timed out',
+      isRecoverable: false,
+      suggestions: [
+        'Try a smaller file',
+        'Check if the file is corrupted',
+        'Split large PDFs into smaller sections'
+      ]
+    };
+  }
+
+  if (errorMsg.includes('extractable text') || errorMsg.includes('image-based')) {
+    return {
+      message: 'PDF contains no selectable text',
+      isRecoverable: true,
+      suggestions: [
+        'This appears to be a scanned or image-based PDF',
+        'Try uploading the pages as images instead',
+        'Use OCR software to convert the PDF to text first'
+      ]
+    };
+  }
+
+  if (errorMsg.includes('too short') || errorMsg.includes('minimal text')) {
+    return {
+      message: 'Extracted text is too short',
+      isRecoverable: true,
+      suggestions: [
+        'The file may be mostly images',
+        'Try uploading the content as images',
+        'Check if the file has actual content'
+      ]
+    };
+  }
+
+  if (errorMsg.includes('too large') || errorMsg.includes('file size')) {
+    return {
+      message: 'File is too large to process',
+      isRecoverable: false,
+      suggestions: [
+        'Try a smaller file (under 10MB)',
+        'Compress the PDF',
+        'Split into multiple smaller files'
+      ]
+    };
+  }
+
+  // Network or server errors
+  if (errorMsg.includes('fetch') || errorMsg.includes('network')) {
+    return {
+      message: 'Network error during file processing',
+      isRecoverable: true,
+      suggestions: [
+        'Check your internet connection',
+        'Try again in a moment',
+        'Refresh the page if the issue persists'
+      ]
+    };
+  }
+
+  // Default case
+  return {
+    message: errorMsg,
+    isRecoverable: false,
+    suggestions: ['Try a different file', 'Contact support if the issue persists']
+  };
+}
+
+/**
  * Extract text from slide files (PPTX, PDF) with fallback to vision AI
  */
 export async function extractSlideContent(files: File[]): Promise<string | null> {
@@ -70,6 +160,7 @@ export async function extractSlideContent(files: File[]): Promise<string | null>
   // First, try text extraction for documents
   let extractedText = '';
   const failedDocuments: File[] = [];
+  const extractionErrors: any[] = [];
 
   if (documents.length > 0) {
     const formData = new FormData();
@@ -99,15 +190,28 @@ export async function extractSlideContent(files: File[]): Promise<string | null>
             console.error('Extracted error:', errorMatch[1]);
           }
 
-          throw new Error('Server error during slide extraction');
+          const parsedError = parseAPIError({ message: 'Server error during slide extraction' });
+          alert(`⚠️ ${parsedError.message}\n\n${parsedError.suggestions?.join('\n• ') || ''}`);
+          throw new Error(parsedError.message);
         }
 
         // Try to parse JSON error
         try {
           const error = await response.json();
-          throw new Error(error.error || error.details || 'Failed to extract slide content');
+          const parsedError = parseAPIError(error);
+
+          // Display user-friendly error message
+          if (parsedError.suggestions && parsedError.suggestions.length > 0) {
+            alert(`⚠️ ${parsedError.message}\n\nSuggestions:\n• ${parsedError.suggestions.join('\n• ')}`);
+          } else {
+            alert(`⚠️ ${parsedError.message}`);
+          }
+
+          throw new Error(parsedError.message);
         } catch (jsonError) {
-          throw new Error(`Failed to extract slide content (${response.status} ${response.statusText})`);
+          const parsedError = parseAPIError({ message: `Failed to extract slide content (${response.status} ${response.statusText})` });
+          alert(`⚠️ ${parsedError.message}`);
+          throw new Error(parsedError.message);
         }
       }
 
@@ -119,6 +223,24 @@ export async function extractSlideContent(files: File[]): Promise<string | null>
         data.results.forEach((result: any, index: number) => {
           const wordCount = result.text ? result.text.split(/\s+/).filter((w: string) => w.length > 0).length : 0;
 
+          // Track extraction errors for each file
+          if (result.error) {
+            extractionErrors.push({
+              fileName: result.fileName,
+              type: result.type || 'pdf',
+              error: result.error,
+              warning: result.warning
+            });
+
+            const parsedError = parseAPIError({ error: result.error });
+            console.warn(`File ${result.fileName}: ${parsedError.message}`);
+
+            // Show specific error for this file
+            if (parsedError.suggestions && parsedError.suggestions.length > 0) {
+              console.warn(`Suggestions for ${result.fileName}:`, parsedError.suggestions);
+            }
+          }
+
           // If extraction failed or returned very little text (< 20 words), mark for fallback
           if (result.error || !result.text || wordCount < 20) {
             console.warn(`File ${result.fileName} extraction poor (${wordCount} words), will try vision AI fallback`);
@@ -129,11 +251,29 @@ export async function extractSlideContent(files: File[]): Promise<string | null>
 
       extractedText = data.combinedText || '';
     } catch (error: any) {
-      console.error('Text extraction completely failed, will try vision AI fallback:', error);
+      console.error('Text extraction completely failed:', error);
+      const parsedError = parseAPIError(error);
+
+      // Don't show alert here if we already showed one above
+      if (!error.message || !error.message.includes('Server error')) {
+        if (parsedError.suggestions && parsedError.suggestions.length > 0) {
+          alert(`⚠️ Extraction failed: ${parsedError.message}\n\nSuggestions:\n• ${parsedError.suggestions.join('\n• ')}`);
+        } else {
+          alert(`⚠️ Extraction failed: ${parsedError.message}`);
+        }
+      }
+
       // All documents failed, add them all to fallback
       failedDocuments.push(...documents);
+      extractionErrors.push({
+        type: 'pdf',
+        error: parsedError.message
+      });
     }
   }
+
+  // Store extraction errors for potential use in generate-materials
+  (extractSlideContent as any).lastExtractionErrors = extractionErrors;
 
   // Process image slides
   let imageAnalysis = '';
@@ -234,6 +374,21 @@ export function createFormData(files: File[], fieldName: string = 'file'): FormD
     });
   }
   return formData;
+}
+
+/**
+ * Get the last extraction errors from extractSlideContent
+ * These can be passed to generate-materials for better error handling
+ */
+export function getLastExtractionErrors(): any[] {
+  return (extractSlideContent as any).lastExtractionErrors || [];
+}
+
+/**
+ * Clear stored extraction errors
+ */
+export function clearExtractionErrors() {
+  (extractSlideContent as any).lastExtractionErrors = [];
 }
 
 /**
