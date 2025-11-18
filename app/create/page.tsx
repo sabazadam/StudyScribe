@@ -7,11 +7,10 @@ import SlideUploader from '@/components/ui/SlideUploader';
 import ImageUploader from '@/components/ui/ImageUploader';
 import ProcessingProgress from '@/components/ui/ProcessingProgress';
 import ActionButtons from '@/components/ui/ActionButtons';
-import ChatMessage from '@/components/ui/ChatMessage';
 import FeedbackWidget from '@/components/ui/FeedbackWidget';
 import CreateAnotherModal from '@/components/ui/CreateAnotherModal';
 import TranscriptModal from '@/components/ui/TranscriptModal';
-import FloatingActionBar from '@/components/ui/FloatingActionBar';
+import ResultsModal from '@/components/ui/ResultsModal';
 import StepIndicator from '@/components/ui/StepIndicator';
 import Tabs from '@/components/ui/Tabs';
 import { fileToBase64, extractSlideContent, analyzeImageContent, getLastExtractionErrors, clearExtractionErrors } from '@/lib/fileProcessing';
@@ -38,7 +37,7 @@ interface LectureMaterial {
   updatedAt: string;
 }
 
-export default function Home() {
+export default function CreateMaterialsPage() {
   // File states
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [slideFiles, setSlideFiles] = useState<File[]>([]);
@@ -83,6 +82,7 @@ export default function Home() {
   // Modal states
   const [showCreateAnother, setShowCreateAnother] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [showResultsModal, setShowResultsModal] = useState(false);
 
   // Load materials data
   useEffect(() => {
@@ -238,6 +238,13 @@ export default function Home() {
     // Validation
     if (!audioFile && slideFiles.length === 0) {
       setError('Please upload at least an audio file or slides');
+      return;
+    }
+
+    // CRITICAL FIX: Validate custom prompt before processing
+    if (outputType === 'custom' && !customPrompt.trim()) {
+      setError('Please enter a custom prompt before generating materials.');
+      setCurrentStep(2); // Return to type selection
       return;
     }
 
@@ -442,8 +449,9 @@ export default function Home() {
         imageAnalysis
       });
 
-      // Move to results step
+      // Move to results step and open modal
       setCurrentStep(4);
+      setShowResultsModal(true);
     } catch (err: any) {
       console.error('Processing error:', err);
       setError(err.message || 'An error occurred during processing');
@@ -470,6 +478,8 @@ export default function Home() {
     setSelectedInstructor('');
     setSelectedWeek(null);
     setSelectedLecture(null);
+    // CRITICAL FIX: Clear extraction errors on reset
+    clearExtractionErrors();
   };
 
   const handleSaveToHub = async () => {
@@ -556,8 +566,27 @@ export default function Home() {
 
   const handleTypeSelection = (type: string) => {
     setOutputType(type);
+
+    // CRITICAL FIX: Don't auto-proceed for custom type - let user enter prompt first
+    if (type === 'custom') {
+      // Just set the type, wait for user to enter prompt
+      return;
+    }
+
     setCurrentStep(3);
     // Start processing
+    handleGenerate();
+  };
+
+  // CRITICAL FIX: Separate handler for custom prompt submission
+  const handleCustomPromptSubmit = () => {
+    if (!customPrompt.trim()) {
+      setError('Please enter a custom prompt.');
+      return;
+    }
+
+    setError('');
+    setCurrentStep(3);
     handleGenerate();
   };
 
@@ -565,17 +594,44 @@ export default function Home() {
     if (!cachedExtraction) return;
 
     setOutputType(type);
+
+    // CRITICAL FIX: For custom type, show the custom prompt input
+    if (type === 'custom') {
+      setCurrentStep(2); // Go back to type selection to enter prompt
+      setCustomPrompt(''); // Clear previous prompt
+      return;
+    }
+
     setCurrentStep(3);
     setIsProcessing(true);
     setError('');
     setResult('');
+    setShowResultsModal(false);
+
+    // Show processing steps for cached data
+    setProcessingSteps({
+      transcription: { status: 'skipped', message: 'Using cached transcript' },
+      slideExtraction: { status: 'skipped', message: 'Using cached slides' },
+      imageAnalysis: { status: 'skipped', message: 'Using cached images' },
+      materialGeneration: { status: 'loading', message: 'Generating new materials...' },
+    });
 
     // Generate with cached extraction
     generateWithCachedData(type);
   };
 
-  const generateWithCachedData = async (type: string) => {
+  const generateWithCachedData = async (type: string, customPromptOverride?: string) => {
     try {
+      const promptToUse = customPromptOverride || customPrompt;
+
+      // CRITICAL FIX: Validate custom prompt
+      if (type === 'custom' && !promptToUse.trim()) {
+        setError('Custom prompt is required');
+        setIsProcessing(false);
+        setCurrentStep(2);
+        return;
+      }
+
       // Show material generation progress
       setProcessingSteps(prev => ({
         ...prev,
@@ -590,7 +646,7 @@ export default function Home() {
           slideText: cachedExtraction?.slideText || '',
           imageAnalysis: cachedExtraction?.imageAnalysis || '',
           materialType: type,
-          customPrompt: type === 'custom' ? customPrompt : undefined,
+          customPrompt: type === 'custom' ? promptToUse : undefined,
         }),
       });
 
@@ -617,6 +673,7 @@ export default function Home() {
       setResult(generateData.content);
       setIsSaved(false);
       setCurrentStep(4);
+      setShowResultsModal(true);
     } catch (err: any) {
       console.error('Generation error:', err);
       setError(err.message || 'An error occurred during generation');
@@ -635,6 +692,7 @@ export default function Home() {
     setPhotoFiles([]);
     setCachedExtraction(null);
     setGeneratedTranscript('');
+    setShowResultsModal(false);
     setProcessingSteps({
       transcription: { status: 'idle', message: '' },
       slideExtraction: { status: 'idle', message: '' },
@@ -649,9 +707,11 @@ export default function Home() {
       <header className="glass dark:glass-dark border-b border-border-light dark:border-border-dark sticky top-0 z-50 shadow-sm backdrop-blur-lg" role="banner">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-heading font-bold text-gradient-academic">
-              LectureHelper AI
-            </h1>
+            <Link href="/">
+              <h1 className="text-2xl font-heading font-bold text-gradient-academic cursor-pointer hover:opacity-80 transition-opacity">
+                LectureHelper AI
+              </h1>
+            </Link>
             <nav aria-label="Main navigation">
               <div className="flex gap-3">
                 <Link
@@ -680,16 +740,6 @@ export default function Home() {
 
       <main id="main-content" className="container mx-auto px-4 py-8" role="main">
         <div className="max-w-5xl mx-auto">
-          {/* Hero Section */}
-          <div className="text-center mb-12 bg-mesh-hero dark:bg-mesh-academic-dark rounded-3xl p-12 pattern-dots animate-scale-in">
-            <h2 className="text-4xl md:text-5xl font-heading font-bold text-oxford-blue dark:text-text-dark mb-4 animate-slide-up" style={{animationDelay: '100ms'}}>
-              Transform Your Lectures into <span className="text-gradient-accent">Study Materials</span>
-            </h2>
-            <p className="text-lg text-text-muted dark:text-text-dark-muted max-w-2xl mx-auto animate-fade-in" style={{animationDelay: '200ms'}}>
-              Upload audio, slides, and photos to generate comprehensive study guides powered by AI
-            </p>
-          </div>
-
           {/* Progress Indicator */}
           <StepIndicator
             currentStep={currentStep}
@@ -944,7 +994,7 @@ export default function Home() {
                     placeholder="e.g., 'Create flashcards focusing on key definitions' or 'Explain this using simple analogies'"
                   />
                   <button
-                    onClick={() => handleTypeSelection('custom')}
+                    onClick={handleCustomPromptSubmit}
                     disabled={isProcessing || !customPrompt.trim()}
                     className="mt-4 w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                   >
@@ -1019,121 +1069,8 @@ export default function Home() {
             </div>
           )}
 
-          {/* Step 4: Results */}
-          {currentStep === 4 && result && (
-            <>
-              <div className="bg-card-light dark:bg-card-dark rounded-2xl shadow-lg p-8 mb-32 animate-scale-in card">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-2xl font-heading font-bold text-oxford-blue dark:text-text-dark">Your Study Materials</h3>
-                  <button
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    className="px-3 py-2 text-sm text-primary hover:text-primary-dark flex items-center gap-1 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-sm">arrow_upward</span>
-                    Scroll to Top
-                  </button>
-                </div>
-
-                {/* Content Area - Scrollable */}
-                <div className="max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                  <ChatMessage
-                    content={result}
-                    role="assistant"
-                    timestamp={new Date().toISOString()}
-                  />
-                </div>
-
-                {/* Feedback Widget */}
-                <div className="mt-6 pt-6 border-t border-border-light dark:border-border-dark">
-                  <FeedbackWidget
-                    materialType={outputType}
-                    onFeedbackSubmit={(rating, comment) => {
-                      console.log('Feedback:', { rating, comment, outputType });
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Floating Action Bar */}
-              <FloatingActionBar isVisible={true}>
-                <nav aria-label="Study material actions">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    {/* Primary Actions */}
-                    <div className="flex flex-wrap items-center gap-3" role="group" aria-label="Primary actions">
-                      <button
-                        onClick={handleSaveToHub}
-                        disabled={isSaving || isSaved}
-                        className={`px-6 py-3 rounded-lg transition-all flex items-center gap-2 font-semibold shadow-md hover:shadow-lg min-h-[48px] ${
-                          isSaved
-                            ? 'bg-success text-white cursor-default animate-success-pop'
-                            : 'btn-primary'
-                        }`}
-                        aria-label={isSaved ? 'Material saved to hub' : 'Save material to study hub'}
-                        aria-disabled={isSaving || isSaved}
-                      >
-                        <span className="material-symbols-outlined text-sm" aria-hidden="true">
-                          {isSaved ? 'check_circle' : 'save'}
-                        </span>
-                        {isSaving ? 'Saving...' : isSaved ? 'Saved to Hub!' : 'Save to Hub'}
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          const blob = new Blob([result], { type: 'text/markdown' });
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `study-material-${new Date().toISOString().split('T')[0]}.md`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
-                        }}
-                        className="btn-outline min-h-[48px]"
-                        aria-label="Download study material as markdown file"
-                      >
-                        <span className="material-symbols-outlined text-sm" aria-hidden="true">download</span>
-                        <span className="hidden sm:inline">Download</span>
-                      </button>
-
-                      <button
-                        onClick={() => setShowCreateAnother(true)}
-                        className="px-4 py-3 bg-accent/10 hover:bg-accent/20 text-accent-dark dark:text-accent-light rounded-lg transition-all flex items-center gap-2 font-semibold border border-accent/30 min-h-[48px]"
-                        aria-label="Create another study material from the same lecture"
-                      >
-                        <span className="material-symbols-outlined text-sm" aria-hidden="true">add_circle</span>
-                        <span className="hidden sm:inline">Create Another</span>
-                        <span className="sm:hidden">New</span>
-                      </button>
-                    </div>
-
-                    {/* Secondary Actions */}
-                    <div className="flex items-center gap-3" role="group" aria-label="Secondary actions">
-                      {generatedTranscript && (
-                        <button
-                          onClick={() => setShowTranscript(true)}
-                          className="btn-ghost text-sm min-h-[48px]"
-                          aria-label="View lecture transcript"
-                        >
-                          <span className="material-symbols-outlined text-sm" aria-hidden="true">article</span>
-                          <span className="hidden sm:inline">Transcript</span>
-                        </button>
-                      )}
-
-                      <button
-                        onClick={handleStartOver}
-                        className="btn-ghost text-sm min-h-[48px]"
-                        aria-label="Start over and create new material"
-                      >
-                        <span className="material-symbols-outlined text-sm" aria-hidden="true">refresh</span>
-                        <span className="hidden sm:inline">Start Over</span>
-                      </button>
-                    </div>
-                  </div>
-                </nav>
-              </FloatingActionBar>
-            </>
-          )}
+          {/* Step 4: Results - Now handled by ResultsModal */}
+          {/* Modal will be shown when showResultsModal is true */}
         </div>
       </main>
 
@@ -1148,6 +1085,32 @@ export default function Home() {
         isOpen={showTranscript}
         onClose={() => setShowTranscript(false)}
         transcript={generatedTranscript}
+      />
+
+      {/* Results Modal */}
+      <ResultsModal
+        isOpen={showResultsModal}
+        onClose={() => setShowResultsModal(false)}
+        content={result}
+        onSave={handleSaveToHub}
+        onDownload={() => {
+          const blob = new Blob([result], { type: 'text/markdown' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `study-material-${new Date().toISOString().split('T')[0]}.md`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }}
+        onCreateAnother={() => setShowCreateAnother(true)}
+        onStartOver={handleStartOver}
+        onShowTranscript={() => setShowTranscript(true)}
+        isSaved={isSaved}
+        isSaving={isSaving}
+        hasTranscript={!!generatedTranscript}
+        materialType={outputType}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import EnhancedMarkdown from './EnhancedMarkdown';
 import { SavedStudyMaterial } from '@/lib/studyMaterialStorage';
 
@@ -19,6 +19,16 @@ export default function MaterialModal({
 }: MaterialModalProps) {
   const [activeTab, setActiveTab] = useState<'content' | 'transcript'>('content');
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // MINOR FIX: Reset tab when material changes and doesn't have transcript
+  useEffect(() => {
+    // When material changes, validate the active tab
+    if (activeTab === 'transcript' && material && !material.transcript) {
+      // If transcript tab is active but new material has no transcript,
+      // switch to content tab
+      setActiveTab('content');
+    }
+  }, [material, activeTab]);
 
   if (!isOpen || !material) return null;
 
@@ -149,21 +159,24 @@ export default function MaterialModal({
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />
                 )}
               </button>
-              {material.transcript && (
-                <button
-                  onClick={() => setActiveTab('transcript')}
-                  className={`pb-3 px-2 font-medium transition-colors relative ${
-                    activeTab === 'transcript'
-                      ? 'text-blue-600 dark:text-blue-400'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                  }`}
-                >
-                  Transcript
-                  {activeTab === 'transcript' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />
-                  )}
-                </button>
-              )}
+              <button
+                onClick={() => setActiveTab('transcript')}
+                disabled={!material.transcript}
+                title={!material.transcript ? 'No transcript available for this material' : 'View transcript'}
+                className={`pb-3 px-2 font-medium transition-colors relative ${
+                  activeTab === 'transcript'
+                    ? 'text-blue-600 dark:text-blue-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                } ${!material.transcript ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                Transcript
+                {!material.transcript && (
+                  <span className="ml-2 text-xs">(Not available)</span>
+                )}
+                {activeTab === 'transcript' && material.transcript && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />
+                )}
+              </button>
             </div>
           </div>
 
@@ -173,13 +186,29 @@ export default function MaterialModal({
               <div className="prose prose-blue dark:prose-invert max-w-none">
                 <EnhancedMarkdown content={material.content} />
               </div>
-            ) : (
+            ) : material.transcript ? (
               <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
                 <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
                   Lecture Transcript
                 </h3>
                 <div className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono text-sm">
-                  {material.transcript || 'No transcript available'}
+                  {material.transcript}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6 text-center text-gray-500 dark:text-gray-400">
+                <div className="flex flex-col items-center gap-4">
+                  <span className="material-symbols-outlined text-5xl">article_off</span>
+                  <div>
+                    <p className="font-semibold mb-2">No transcript available for this material.</p>
+                    <p className="text-sm mb-4">This material was created without an audio/video source.</p>
+                    <button
+                      onClick={() => setActiveTab('content')}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      View Study Material
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
