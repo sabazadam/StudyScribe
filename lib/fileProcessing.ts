@@ -65,6 +65,7 @@ export function separateSlideFiles(files: File[]): {
 function parseAPIError(error: any): {
   message: string;
   isRecoverable: boolean;
+  isRetryable: boolean;
   suggestions?: string[];
 } {
   // Handle structured error responses from our improved APIs
@@ -72,6 +73,7 @@ function parseAPIError(error: any): {
     return {
       message: error.error || 'An error occurred',
       isRecoverable: true,
+      isRetryable: false, // Structured errors are not network issues
       suggestions: error.suggestions || []
     };
   }
@@ -84,6 +86,7 @@ function parseAPIError(error: any): {
     return {
       message: 'File processing timed out',
       isRecoverable: false,
+      isRetryable: false, // Timeout likely means file is too large
       suggestions: [
         'Try a smaller file',
         'Check if the file is corrupted',
@@ -96,6 +99,7 @@ function parseAPIError(error: any): {
     return {
       message: 'PDF contains no selectable text',
       isRecoverable: true,
+      isRetryable: false, // Content issue, not network
       suggestions: [
         'This appears to be a scanned or image-based PDF',
         'Try uploading the pages as images instead',
@@ -108,6 +112,7 @@ function parseAPIError(error: any): {
     return {
       message: 'Extracted text is too short',
       isRecoverable: true,
+      isRetryable: false, // Content issue, not network
       suggestions: [
         'The file may be mostly images',
         'Try uploading the content as images',
@@ -120,6 +125,7 @@ function parseAPIError(error: any): {
     return {
       message: 'File is too large to process',
       isRecoverable: false,
+      isRetryable: false, // Size issue, won't help to retry
       suggestions: [
         'Try a smaller file (under 10MB)',
         'Compress the PDF',
@@ -128,11 +134,12 @@ function parseAPIError(error: any): {
     };
   }
 
-  // Network or server errors
-  if (errorMsg.includes('fetch') || errorMsg.includes('network')) {
+  // Network or server errors (RETRYABLE)
+  if (errorMsg.includes('fetch') || errorMsg.includes('network') || errorMsg.includes('Failed to fetch')) {
     return {
       message: 'Network error during file processing',
       isRecoverable: true,
+      isRetryable: true, // Network errors can be retried
       suggestions: [
         'Check your internet connection',
         'Try again in a moment',
@@ -141,12 +148,68 @@ function parseAPIError(error: any): {
     };
   }
 
+  // Server errors (500, 502, 503, etc.) - RETRYABLE
+  if (errorMsg.includes('500') || errorMsg.includes('502') || errorMsg.includes('503') || errorMsg.includes('Server error')) {
+    return {
+      message: 'Server error - this is usually temporary',
+      isRecoverable: true,
+      isRetryable: true,
+      suggestions: [
+        'The server is experiencing issues',
+        'Retrying automatically...',
+        'If this persists, try again later'
+      ]
+    };
+  }
+
   // Default case
   return {
     message: errorMsg,
     isRecoverable: false,
+    isRetryable: false,
     suggestions: ['Try a different file', 'Contact support if the issue persists']
   };
+}
+
+/**
+ * Retry wrapper for handling transient network failures
+ * Only retries if the error is network-related (not content issues)
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 2,
+  errorContext: string = 'Operation'
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+
+      // Check if error is retryable
+      const parsedError = parseAPIError(err);
+
+      if (!parsedError.isRetryable) {
+        // Not a network error, don't retry
+        console.warn(`${errorContext} failed with non-retryable error:`, parsedError.message);
+        throw err;
+      }
+
+      // If we have retries left, wait and try again
+      if (attempt < maxRetries) {
+        const delay = 1000 * (attempt + 1); // 1s, 2s delays
+        console.log(`${errorContext} failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        console.error(`${errorContext} failed after ${maxRetries + 1} attempts`);
+      }
+    }
+  }
+
+  // All retries exhausted
+  throw lastError;
 }
 
 /**
@@ -169,10 +232,15 @@ export async function extractSlideContent(files: File[]): Promise<string | null>
     });
 
     try {
-      const response = await fetch('/api/extract-slides', {
-        method: 'POST',
-        body: formData,
-      });
+      // Wrap fetch in retry logic for network failures
+      const response = await withRetry(
+        () => fetch('/api/extract-slides', {
+          method: 'POST',
+          body: formData,
+        }),
+        2, // max 2 retries
+        'PDF/PPTX extraction'
+      );
 
       if (!response.ok) {
         const contentType = response.headers.get('content-type');
@@ -316,11 +384,16 @@ export async function analyzeImageContent(files: File[]): Promise<string | null>
   // Convert files to base64 format
   const images = await prepareImagesForAPI(files);
 
-  const response = await fetch('/api/analyze-images', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ images }),
-  });
+  // Wrap fetch in retry logic for network failures
+  const response = await withRetry(
+    () => fetch('/api/analyze-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ images }),
+    }),
+    2, // max 2 retries
+    'Image analysis'
+  );
 
   if (!response.ok) {
     const error = await response.json();

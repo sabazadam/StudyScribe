@@ -14,7 +14,7 @@ import TranscriptModal from '@/components/ui/TranscriptModal';
 import FloatingActionBar from '@/components/ui/FloatingActionBar';
 import StepIndicator from '@/components/ui/StepIndicator';
 import Tabs from '@/components/ui/Tabs';
-import { fileToBase64, extractSlideContent, analyzeImageContent } from '@/lib/fileProcessing';
+import { fileToBase64, extractSlideContent, analyzeImageContent, getLastExtractionErrors, clearExtractionErrors } from '@/lib/fileProcessing';
 
 interface MaterialFile {
   id: string;
@@ -193,6 +193,47 @@ export default function Home() {
     }
   };
 
+  // Helper function to build detailed error messages from extraction results
+  const buildExtractionErrorMessage = (
+    audioFile: File | null,
+    slideFiles: File[],
+    photoFiles: File[],
+    processingSteps: {
+      transcription: { status: 'idle' | 'loading' | 'success' | 'error' | 'skipped', message: string };
+      slideExtraction: { status: 'idle' | 'loading' | 'success' | 'error' | 'skipped', message: string };
+      imageAnalysis: { status: 'idle' | 'loading' | 'success' | 'error' | 'skipped', message: string };
+      materialGeneration: { status: 'idle' | 'loading' | 'success' | 'error' | 'skipped', message: string };
+    }
+  ): string => {
+    const parts: string[] = [];
+
+    if (audioFile && processingSteps.transcription.status === 'error') {
+      parts.push('❌ Audio transcription failed.');
+    }
+
+    if (slideFiles.length > 0 && processingSteps.slideExtraction.status === 'error') {
+      parts.push('❌ Slide extraction failed - your PDF may be image-based or scanned. Try uploading the pages as images instead.');
+    }
+
+    if (photoFiles.length > 0 && processingSteps.imageAnalysis.status === 'error') {
+      parts.push('❌ Image analysis failed.');
+    }
+
+    // If no specific errors but still no content
+    if (parts.length === 0) {
+      parts.push('⚠️ No readable content could be extracted from your files.');
+      parts.push('');
+      parts.push('💡 Suggestions:');
+      if (slideFiles.length > 0) {
+        parts.push('• If you uploaded a PDF, it may be image-based. Try uploading the pages as images instead.');
+      }
+      parts.push('• Ensure files contain actual text or clear visual content.');
+      parts.push('• Try different file formats (e.g., PPTX instead of PDF).');
+    }
+
+    return parts.join('\n');
+  };
+
   const handleGenerate = async () => {
     // Validation
     if (!audioFile && slideFiles.length === 0) {
@@ -250,10 +291,24 @@ export default function Home() {
         try {
           const extractedText = await extractSlideContent(slideFiles);
           slideText = extractedText || '';
-          setProcessingSteps(prev => ({
-            ...prev,
-            slideExtraction: { status: 'success', message: 'Slides extracted!' }
-          }));
+
+          // Only show success if we got meaningful content
+          if (slideText && slideText.trim().length > 50) {
+            setProcessingSteps(prev => ({
+              ...prev,
+              slideExtraction: { status: 'success', message: 'Slides extracted!' }
+            }));
+          } else if (slideText && slideText.trim().length > 0) {
+            setProcessingSteps(prev => ({
+              ...prev,
+              slideExtraction: { status: 'error', message: 'Minimal content extracted - file may be image-based' }
+            }));
+          } else {
+            setProcessingSteps(prev => ({
+              ...prev,
+              slideExtraction: { status: 'error', message: 'No text extracted - file may be image-based or scanned' }
+            }));
+          }
         } catch (err) {
           setProcessingSteps(prev => ({
             ...prev,
@@ -278,10 +333,24 @@ export default function Home() {
         try {
           const analyzedText = await analyzeImageContent(photoFiles);
           imageAnalysis = analyzedText || '';
-          setProcessingSteps(prev => ({
-            ...prev,
-            imageAnalysis: { status: 'success', message: 'Photos analyzed!' }
-          }));
+
+          // Only show success if we got meaningful content
+          if (imageAnalysis && imageAnalysis.trim().length > 50) {
+            setProcessingSteps(prev => ({
+              ...prev,
+              imageAnalysis: { status: 'success', message: 'Photos analyzed!' }
+            }));
+          } else if (imageAnalysis && imageAnalysis.trim().length > 0) {
+            setProcessingSteps(prev => ({
+              ...prev,
+              imageAnalysis: { status: 'error', message: 'Minimal content from images - photos may be unclear' }
+            }));
+          } else {
+            setProcessingSteps(prev => ({
+              ...prev,
+              imageAnalysis: { status: 'error', message: 'No content extracted from images' }
+            }));
+          }
         } catch (err) {
           setProcessingSteps(prev => ({
             ...prev,
@@ -295,11 +364,36 @@ export default function Home() {
         }));
       }
 
+      // PRE-GENERATION VALIDATION: Check if we have any meaningful content
+      const hasTranscript = transcript && transcript.trim().length > 50;
+      const hasSlideText = slideText && slideText.trim().length > 50;
+      const hasImageAnalysis = imageAnalysis && imageAnalysis.trim().length > 50;
+
+      if (!hasTranscript && !hasSlideText && !hasImageAnalysis) {
+        // Build detailed error message explaining what failed
+        const errorMessage = buildExtractionErrorMessage(
+          audioFile,
+          slideFiles,
+          photoFiles,
+          processingSteps
+        );
+
+        setProcessingSteps(prev => ({
+          ...prev,
+          materialGeneration: { status: 'error', message: 'Cannot generate materials - no content extracted' }
+        }));
+
+        throw new Error(errorMessage);
+      }
+
       // Step 4: Generate Materials with Gemini
       setProcessingSteps(prev => ({
         ...prev,
         materialGeneration: { status: 'loading', message: 'Generating study materials with AI...' }
       }));
+
+      // Get extraction errors to send to API for better error context
+      const extractionErrors = getLastExtractionErrors();
 
       const generateResponse = await fetch('/api/generate-materials', {
         method: 'POST',
@@ -310,8 +404,12 @@ export default function Home() {
           imageAnalysis,
           materialType: outputType,
           customPrompt: outputType === 'custom' ? customPrompt : undefined,
+          extractionErrors: extractionErrors.length > 0 ? extractionErrors : undefined,
         }),
       });
+
+      // Clear extraction errors after sending to API
+      clearExtractionErrors();
 
       if (!generateResponse.ok) {
         setProcessingSteps(prev => ({

@@ -322,6 +322,207 @@
   .animate-success-pop {
     animation: successPop 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
   }
+
+  /* ===== MICRO-INTERACTIONS & DELIGHT MOMENTS ===== */
+
+  /* Enhanced button effects */
+  .btn-ripple {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-ripple::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .btn-ripple:active::after {
+    width: 300px;
+    height: 300px;
+  }
+
+  /* Magnetic button hover effect */
+  .btn-magnetic {
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .btn-magnetic:hover {
+    transform: scale(1.05) translateY(-2px);
+  }
+
+  .btn-magnetic:active {
+    transform: scale(0.98) translateY(0);
+  }
+
+  /* Loading skeleton states */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(3, 64, 120, 0.05) 0%,
+      rgba(3, 64, 120, 0.1) 50%,
+      rgba(3, 64, 120, 0.05) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s ease-in-out infinite;
+    border-radius: 0.5rem;
+  }
+
+  .skeleton-text {
+    @apply skeleton h-4 w-full mb-2;
+  }
+
+  .skeleton-title {
+    @apply skeleton h-8 w-3/4 mb-4;
+  }
+
+  .skeleton-circle {
+    @apply skeleton rounded-full;
+  }
+
+  /* Interactive card effects */
+  .card-interactive {
+    @apply card cursor-pointer;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .card-interactive:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow:
+      0 20px 40px rgba(3, 64, 120, 0.15),
+      0 0 0 1px rgba(212, 175, 55, 0.1);
+  }
+
+  .card-interactive:active {
+    transform: translateY(-4px) scale(1.01);
+  }
+
+  /* Glowing pulse effect for CTAs */
+  .pulse-glow-cta {
+    animation: pulseGlowCTA 2s ease-in-out infinite;
+  }
+
+  /* Success checkmark animation */
+  .checkmark-circle {
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    animation: stroke-circle 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+  }
+
+  .checkmark-check {
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: stroke-check 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards;
+  }
+
+  /* Floating animation for badges */
+  .float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* Shake animation for errors */
+  .shake {
+    animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  }
+
+  /* Smooth page transition overlay */
+  .page-transition {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-cerulean) 100%);
+    z-index: 9999;
+    animation: pageTransitionOut 0.5s ease-out forwards;
+  }
+
+  /* Progress bar with shimmer */
+  .progress-bar {
+    position: relative;
+    overflow: hidden;
+    background: rgba(3, 64, 120, 0.1);
+    border-radius: 9999px;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      var(--color-primary),
+      var(--color-cerulean),
+      var(--color-primary)
+    );
+    background-size: 200% 100%;
+    animation: shimmer-progress 2s linear infinite;
+    border-radius: 9999px;
+    transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Tooltip with smooth fade */
+  .tooltip {
+    @apply absolute invisible opacity-0;
+    transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+    transform: translateY(4px);
+  }
+
+  .tooltip-trigger:hover .tooltip {
+    @apply visible opacity-100;
+    transform: translateY(0);
+  }
+
+  /* Icon bounce on hover */
+  .icon-bounce:hover {
+    animation: icon-bounce 0.5s ease-in-out;
+  }
+
+  /* Gradient border animation */
+  .gradient-border {
+    position: relative;
+    background: var(--color-background-light);
+    border-radius: 1rem;
+  }
+
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 1rem;
+    padding: 2px;
+    background: linear-gradient(
+      45deg,
+      var(--color-primary),
+      var(--color-cerulean),
+      var(--color-gold),
+      var(--color-primary)
+    );
+    background-size: 300% 300%;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: gradient-rotate 4s linear infinite;
+    z-index: -1;
+  }
+
+  /* Stagger animation for lists */
+  .stagger-item {
+    animation: slideUp 0.5s ease-out forwards;
+    opacity: 0;
+  }
+
+  .stagger-item:nth-child(1) { animation-delay: 0.1s; }
+  .stagger-item:nth-child(2) { animation-delay: 0.2s; }
+  .stagger-item:nth-child(3) { animation-delay: 0.3s; }
+  .stagger-item:nth-child(4) { animation-delay: 0.4s; }
+  .stagger-item:nth-child(5) { animation-delay: 0.5s; }
+  .stagger-item:nth-child(6) { animation-delay: 0.6s; }
 }
 
 /* Keyframe animations */
@@ -456,6 +657,123 @@
 
 .animate-spin-slow {
   animation: spin 3s linear infinite;
+}
+
+/* ===== NEW MICRO-INTERACTION KEYFRAMES ===== */
+
+/* Skeleton loading animation */
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* CTA pulse glow */
+@keyframes pulseGlowCTA {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(212, 175, 55, 0.3),
+      0 0 40px rgba(212, 175, 55, 0.15),
+      0 4px 20px rgba(3, 64, 120, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 30px rgba(212, 175, 55, 0.5),
+      0 0 60px rgba(212, 175, 55, 0.25),
+      0 6px 30px rgba(3, 64, 120, 0.15);
+  }
+}
+
+/* Checkmark circle stroke animation */
+@keyframes stroke-circle {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Checkmark check stroke animation */
+@keyframes stroke-check {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Float animation for badges */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Shake animation for errors */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-4px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+/* Page transition animation */
+@keyframes pageTransitionOut {
+  from {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  to {
+    opacity: 0;
+    transform: scaleY(0);
+    transform-origin: top;
+  }
+}
+
+/* Progress bar shimmer */
+@keyframes shimmer-progress {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Icon bounce on hover */
+@keyframes icon-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-8px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+  75% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Gradient border rotation */
+@keyframes gradient-rotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 /* Respect reduced motion preferences */
