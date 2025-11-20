@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import FileUploader from '@/components/ui/FileUploader';
 import SlideUploader from '@/components/ui/SlideUploader';
@@ -10,7 +11,6 @@ import ActionButtons from '@/components/ui/ActionButtons';
 import FeedbackWidget from '@/components/ui/FeedbackWidget';
 import CreateAnotherModal from '@/components/ui/CreateAnotherModal';
 import TranscriptModal from '@/components/ui/TranscriptModal';
-import ResultsModal from '@/components/ui/ResultsModal';
 import StepIndicator from '@/components/ui/StepIndicator';
 import Tabs from '@/components/ui/Tabs';
 import { fileToBase64, extractSlideContent, analyzeImageContent, getLastExtractionErrors, clearExtractionErrors } from '@/lib/fileProcessing';
@@ -38,6 +38,8 @@ interface LectureMaterial {
 }
 
 export default function CreateMaterialsPage() {
+  const router = useRouter();
+
   // File states
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [slideFiles, setSlideFiles] = useState<File[]>([]);
@@ -82,7 +84,6 @@ export default function CreateMaterialsPage() {
   // Modal states
   const [showCreateAnother, setShowCreateAnother] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
-  const [showResultsModal, setShowResultsModal] = useState(false);
 
   // Load materials data
   useEffect(() => {
@@ -435,12 +436,15 @@ export default function CreateMaterialsPage() {
         materialGeneration: { status: 'success', message: 'Materials generated successfully!' }
       }));
 
-      // Wait 1.5 seconds to show the success state, then display results
+      // Wait 1.5 seconds to show the success state, then navigate to results
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      setResult(generateData.content);
-      setGeneratedTranscript(transcript); // Save transcript for later use
-      setIsSaved(false); // Reset saved state
+      // Store data in sessionStorage for results page
+      sessionStorage.setItem('studyMaterialContent', generateData.content);
+      sessionStorage.setItem('studyMaterialType', outputType);
+      if (transcript) {
+        sessionStorage.setItem('studyMaterialTranscript', transcript);
+      }
 
       // Cache extracted text for reuse
       setCachedExtraction({
@@ -449,9 +453,8 @@ export default function CreateMaterialsPage() {
         imageAnalysis
       });
 
-      // Move to results step and open modal
-      setCurrentStep(4);
-      setShowResultsModal(true);
+      // Navigate to results page
+      router.push('/results');
     } catch (err: any) {
       console.error('Processing error:', err);
       setError(err.message || 'An error occurred during processing');
@@ -670,10 +673,14 @@ export default function CreateMaterialsPage() {
       // Wait 1.5 seconds before showing results
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      setResult(generateData.content);
-      setIsSaved(false);
-      setCurrentStep(4);
-      setShowResultsModal(true);
+      // Store data and navigate to results
+      sessionStorage.setItem('studyMaterialContent', generateData.content);
+      sessionStorage.setItem('studyMaterialType', type);
+      if (cachedExtraction?.transcript) {
+        sessionStorage.setItem('studyMaterialTranscript', cachedExtraction.transcript);
+      }
+
+      router.push('/results');
     } catch (err: any) {
       console.error('Generation error:', err);
       setError(err.message || 'An error occurred during generation');
@@ -692,7 +699,7 @@ export default function CreateMaterialsPage() {
     setPhotoFiles([]);
     setCachedExtraction(null);
     setGeneratedTranscript('');
-    setShowResultsModal(false);
+    sessionStorage.clear();
     setProcessingSteps({
       transcription: { status: 'idle', message: '' },
       slideExtraction: { status: 'idle', message: '' },
@@ -1069,8 +1076,7 @@ export default function CreateMaterialsPage() {
             </div>
           )}
 
-          {/* Step 4: Results - Now handled by ResultsModal */}
-          {/* Modal will be shown when showResultsModal is true */}
+          {/* Step 4: Results - Handled by /results page */}
         </div>
       </main>
 
@@ -1085,32 +1091,6 @@ export default function CreateMaterialsPage() {
         isOpen={showTranscript}
         onClose={() => setShowTranscript(false)}
         transcript={generatedTranscript}
-      />
-
-      {/* Results Modal */}
-      <ResultsModal
-        isOpen={showResultsModal}
-        onClose={() => setShowResultsModal(false)}
-        content={result}
-        onSave={handleSaveToHub}
-        onDownload={() => {
-          const blob = new Blob([result], { type: 'text/markdown' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `study-material-${new Date().toISOString().split('T')[0]}.md`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }}
-        onCreateAnother={() => setShowCreateAnother(true)}
-        onStartOver={handleStartOver}
-        onShowTranscript={() => setShowTranscript(true)}
-        isSaved={isSaved}
-        isSaving={isSaving}
-        hasTranscript={!!generatedTranscript}
-        materialType={outputType}
       />
     </div>
   );

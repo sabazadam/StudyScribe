@@ -170,9 +170,6 @@ export default function MaterialModal({
                 } ${!material.transcript ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 Transcript
-                {!material.transcript && (
-                  <span className="ml-2 text-xs">(Not available)</span>
-                )}
                 {activeTab === 'transcript' && material.transcript && (
                   <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 dark:bg-blue-400" />
                 )}

@@ -190,57 +190,71 @@ export default function StudyHub() {
             </div>
           )}
 
-          {/* Documents Grid */}
+          {/* Materials Grid */}
           {!loading && !error && filteredMaterials.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {filteredMaterials.map((material) => (
-                <div
+                <button
                   key={material.id}
                   onClick={() => handleOpenMaterial(material)}
-                  className="group relative rounded-xl overflow-hidden bg-white shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105 border border-gray-100"
+                  className="group relative card-elevated glass
+                    border border-oxford-blue/10 rounded-xl p-6
+                    hover:border-cerulean hover:shadow-2xl
+                    transition-all duration-300
+                    transform hover:scale-102
+                    bg-mesh-academic pattern-dots
+                    text-left overflow-hidden focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
                 >
-                  {/* Document Preview */}
-                  <div className="aspect-square w-full bg-gradient-to-br from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center">
-                    <span className={`material-symbols-outlined text-6xl ${getTypeColor(material.materialType)} opacity-50`}>
+                  {/* Icon Badge */}
+                  <div className="flex items-center justify-center w-12 h-12 mb-4
+                    bg-cerulean/10 rounded-full border-2 border-cerulean/20
+                    group-hover:bg-cerulean/20 group-hover:border-cerulean/30
+                    transition-all duration-300">
+                    <span className={`material-symbols-outlined text-2xl ${getTypeColor(material.materialType)}`}>
                       {getTypeIcon(material.materialType)}
                     </span>
                   </div>
 
-                  {/* Document Info */}
-                  <div className="p-4">
-                    <h3 className="font-bold text-sm line-clamp-2 mb-1" title={material.title}>
-                      {material.title}
-                    </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(material.createdAt).toLocaleDateString()}
-                    </p>
-                    <div className="mt-2 flex items-center gap-1">
-                      {material.sources.hasAudio && (
-                        <span className="material-symbols-outlined text-xs text-blue-500" title="Audio">
-                          videocam
-                        </span>
-                      )}
-                      {material.sources.hasSlides && (
-                        <span className="material-symbols-outlined text-xs text-purple-500" title="Slides">
-                          description
-                        </span>
-                      )}
-                      {material.sources.hasPhotos && (
-                        <span className="material-symbols-outlined text-xs text-green-500" title="Photos">
-                          image
-                        </span>
-                      )}
-                    </div>
+                  {/* Title */}
+                  <h3 className="font-heading font-bold text-lg text-oxford-blue dark:text-text-dark mb-2 line-clamp-2 group-hover:text-cerulean transition-colors">
+                    {material.title || `${material.materialType} Material`}
+                  </h3>
+
+                  {/* Date */}
+                  <p className="text-sm text-text-muted dark:text-text-dark-muted mb-4">
+                    {new Date(material.createdAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </p>
+
+                  {/* Source Badges */}
+                  <div className="flex gap-2 flex-wrap">
+                    {material.sources.hasAudio && (
+                      <span className="inline-flex items-center gap-1 badge-primary text-xs">
+                        <span className="material-symbols-outlined text-xs">mic</span>
+                        Audio
+                      </span>
+                    )}
+                    {material.sources.hasSlides && (
+                      <span className="inline-flex items-center gap-1 badge-primary text-xs">
+                        <span className="material-symbols-outlined text-xs">slideshow</span>
+                        Slides
+                      </span>
+                    )}
+                    {material.sources.hasPhotos && (
+                      <span className="inline-flex items-center gap-1 badge-primary text-xs">
+                        <span className="material-symbols-outlined text-xs">image</span>
+                        Photos
+                      </span>
+                    )}
                   </div>
 
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="text-white text-center">
-                      <span className="material-symbols-outlined text-4xl mb-2">visibility</span>
-                      <p className="text-sm font-medium">Click to view</p>
-                    </div>
-                  </div>
-                </div>
+                  {/* Hover Accent */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-transparent to-cerulean/5
+                    opacity-0 group-hover:opacity-100 transition-opacity -z-10 rounded-xl" />
+                </button>
               ))}
             </div>
           )}

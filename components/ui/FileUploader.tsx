@@ -89,6 +89,12 @@ export default function FileUploader({
     }
   };
 
+  const getFileIcon = (file: File): string => {
+    if (file.type.startsWith('audio/')) return 'audiotrack';
+    if (file.type.startsWith('video/')) return 'videocam';
+    return 'description';
+  };
+
   return (
     <div className="w-full">
       <input
@@ -99,77 +105,106 @@ export default function FileUploader({
         className="hidden"
       />
 
+      {/* Drop Zone */}
       <div
         onClick={handleClick}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={`
-          border-2 border-dashed rounded-xl p-8 cursor-pointer
-          transition-all duration-200 ease-in-out
+          relative glass border-2 border-dashed rounded-xl p-8 cursor-pointer
+          transition-all duration-200
           ${isDragging
-            ? 'border-primary bg-primary/5 scale-[1.02]'
-            : 'border-gray-300 dark:border-gray-600 hover:border-primary/50'
+            ? 'border-cerulean bg-cerulean/5 scale-102'
+            : 'border-oxford-blue/30 hover:border-oxford-blue/50'
           }
-          ${selectedFile ? 'bg-green-50 dark:bg-green-900/20 border-green-500' : ''}
-          ${error ? 'bg-red-50 dark:bg-red-900/20 border-red-500' : ''}
+          ${selectedFile && !error ? 'bg-cerulean/5 border-cerulean/50' : ''}
+          ${error ? 'border-amber-500/50 bg-amber-50/30' : ''}
         `}
       >
-        <div className="flex flex-col items-center justify-center text-center space-y-4">
-          <span className="material-symbols-outlined text-5xl text-gray-400 dark:text-gray-500">
-            {selectedFile ? 'check_circle' : icon}
-          </span>
-
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-              {label}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {description}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-              Max file size: {maxSize}MB
-            </p>
+        <div className="flex flex-col items-center justify-center text-center">
+          {/* Icon */}
+          <div className={`w-16 h-16 mb-4 rounded-full flex items-center justify-center
+            ${selectedFile && !error
+              ? 'bg-success/10 border-2 border-success/30'
+              : 'bg-cerulean/10 border-2 border-cerulean/20'
+            }`}>
+            <span className={`material-symbols-outlined text-4xl ${
+              selectedFile && !error ? 'text-success' : 'text-cerulean'
+            }`}>
+              {selectedFile && !error ? 'check_circle' : 'cloud_upload'}
+            </span>
           </div>
 
-          {selectedFile && !error && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 w-full max-w-md">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3 flex-1 min-w-0">
-                  <span className="material-symbols-outlined text-green-600">
-                    description
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {selectedFile.name}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {formatFileSize(selectedFile.size)}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    clearFile();
-                  }}
-                  className="ml-2 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
-                >
-                  <span className="material-symbols-outlined text-sm text-gray-500">
-                    close
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 px-4 py-2 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
+          {/* Text */}
+          <p className="text-oxford-blue dark:text-text-dark font-semibold mb-2">
+            {selectedFile && !error ? 'File uploaded successfully!' : description}
+          </p>
+          <p className="text-sm text-text-muted dark:text-text-dark-muted">
+            {selectedFile && !error
+              ? 'Click to change file or drag a different one'
+              : `Supports ${accept.split(',').slice(0, 3).join(', ')} • Max ${maxSize}MB`
+            }
+          </p>
         </div>
       </div>
+
+      {/* Uploaded File Display */}
+      {selectedFile && !error && (
+        <div className="mt-4 glass border border-oxford-blue/20 rounded-lg p-3
+          flex items-center justify-between
+          hover:border-cerulean transition-colors
+          animate-slide-up">
+          {/* File Icon + Name */}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-10 h-10 rounded-lg bg-cerulean/10 border border-cerulean/20 flex items-center justify-center flex-shrink-0">
+              <span className="material-symbols-outlined text-cerulean">
+                {getFileIcon(selectedFile)}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-oxford-blue dark:text-text-dark font-medium truncate">
+                {selectedFile.name}
+              </p>
+              <p className="text-xs text-text-muted dark:text-text-dark-muted">
+                {formatFileSize(selectedFile.size)}
+              </p>
+            </div>
+          </div>
+
+          {/* Remove Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              clearFile();
+            }}
+            className="ml-2 p-1.5 rounded-full hover:bg-oxford-blue/10 dark:hover:bg-white/10 transition-colors flex-shrink-0"
+            aria-label="Remove file"
+          >
+            <span className="material-symbols-outlined text-sm text-text-muted hover:text-oxford-blue dark:hover:text-text-dark transition-colors">
+              close
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="mt-4 glass border-2 border-amber-500/30 bg-amber-50/50 rounded-lg p-4 animate-shake">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-amber-600">warning</span>
+            <div className="flex-1">
+              <p className="text-sm text-amber-800 font-medium">{error}</p>
+              <button
+                onClick={() => setError(null)}
+                className="text-xs text-amber-700 hover:text-amber-900 mt-1 underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
