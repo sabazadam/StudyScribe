@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { mergeContexts, createEnhancedPrompt, validateContext } from '@/lib/contextMerger';
+import { getModelById, type ModelTier } from '@/lib/models';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -311,7 +312,7 @@ ${content}
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { transcript, slideText, imageAnalysis, materialType, customPrompt, extractionErrors } = body;
+    const { transcript, slideText, imageAnalysis, materialType, customPrompt, extractionErrors, modelTier } = body;
 
     // Check what sources were provided and which failed
     const hasTranscript = transcript && transcript.trim().length > 0;
@@ -421,8 +422,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the appropriate model (using Gemini 2.0 Flash Exp for latest features)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    // Get the appropriate model based on user selection
+    const selectedModel = getModelById((modelTier as ModelTier) || 'default');
+    console.log('Using model:', selectedModel, 'for tier:', modelTier || 'default');
+    const model = genAI.getGenerativeModel({ model: selectedModel });
 
     // Build the prompt using merged content
     let basePrompt: string;

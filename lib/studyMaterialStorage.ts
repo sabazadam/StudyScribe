@@ -21,6 +21,14 @@ export interface SavedStudyMaterial {
     duration?: number;
     wordCount: number;
   };
+  // Raw extraction data for regenerating different material types
+  rawExtraction?: {
+    transcript: string;
+    slideText: string;
+    imageAnalysis: string;
+  };
+  // Linked quizzes generated from this material
+  linkedQuizzes?: string[];
   createdAt: string;
   updatedAt: string;
 }

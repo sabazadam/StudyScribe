@@ -1,0 +1,719 @@
+{
+  "quizzes": [
+    {
+      "title": "Quiz: undefined",
+      "description": "Auto-generated medium quiz with 10 questions",
+      "questions": [
+        {
+          "id": "q-1763980848467-0",
+          "question": "In JavaScript, what is the most accurate description of the primitive value `undefined`?",
+          "options": [
+            "It represents the intentional absence of any object value, explicitly assigned by a programmer.",
+            "It is a value automatically assigned to variables that have been declared but not yet initialized.",
+            "It indicates a critical error in the program's execution that causes the script to halt.",
+            "It is a keyword that functions as an alias for the boolean value `false` in conditional checks."
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is B. In JavaScript, when a variable is declared (e.g., `let myVar;`), it is automatically assigned the primitive value `undefined` until a value is explicitly given to it. Option A describes `null`, which programmers use to signify an intentional absence of value. Option C is incorrect; `undefined` is a standard value, not inherently a critical error, although trying to access properties of an `undefined` value will cause a `TypeError`. Option D is incorrect; while `undefined` is a 'falsy' value (it coerces to false in a boolean context), it is a distinct type and not an alias for `false`.",
+          "difficulty": "medium",
+          "order": 0
+        },
+        {
+          "id": "q-1763980848467-1",
+          "question": "A programmer is debugging a system and finds that a `user.profile` object is `null`, while a `user.age` variable is `undefined`. What is the most likely conceptual difference between these two states?",
+          "options": [
+            "The `user.profile` was explicitly set to have no value, while `user.age` has not yet been assigned any value.",
+            "The `user.profile` refers to a non-existent memory location, while `user.age` points to a valid but empty location.",
+            "Both `null` and `undefined` signify that the program has failed and are interchangeable error codes.",
+            "The `user.age` is an unrecoverable error state, while `user.profile` is a placeholder for a future numeric value."
+          ],
+          "correctAnswer": 0,
+          "explanation": "The correct answer is A. This reflects the common convention in programming. `null` is typically used to explicitly signify 'no value' or 'empty,' intentionally assigned by a programmer (e.g., a database query for a profile that doesn't exist returns `null`). `undefined` usually means a variable has been declared but has not been assigned a value yet (e.g., the `age` property was never set for this user object). Option B is an incorrect description of memory management for these values. Option C is wrong; they are not interchangeable and don't inherently signify program failure. Option D incorrectly describes `undefined` as an error and misinterprets the purpose of `null`.",
+          "difficulty": "medium",
+          "order": 1
+        },
+        {
+          "id": "q-1763980848467-2",
+          "question": "In mathematics, which of the following expressions is fundamentally 'undefined' in the set of real numbers?",
+          "options": [
+            "0 / 7",
+            "7 / 0",
+            "0^0 (zero to the power of zero)",
+            "√-4 (the square root of -4)"
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is B. Division by zero is a fundamentally undefined operation in standard arithmetic and algebra because it has no meaningful answer. Option A, 0 divided by 7, is simply 0. Option C, 0^0, is an 'indeterminate form,' which is subtly different from being undefined; its value can be defined as 1 in some contexts (like combinatorics) but is left indeterminate in others (like calculus). Option D, the square root of -4, is not undefined; it is defined as the imaginary number `2i` within the system of complex numbers.",
+          "difficulty": "medium",
+          "order": 2
+        },
+        {
+          "id": "q-1763980848467-3",
+          "question": "An axiomatic system, such as Euclidean geometry, relies on 'undefined terms' (e.g., 'point,' 'line'). What is the primary function of these terms within such a formal system?",
+          "options": [
+            "To prove that the axiomatic system is incomplete and contains paradoxes.",
+            "To serve as a foundational basis upon which other terms can be defined and axioms can be stated.",
+            "To represent concepts that are universally understood by everyone and therefore require no definition.",
+            "To introduce intentional ambiguity into the system to allow for more flexible interpretations."
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is B. In formal axiomatic systems, undefined terms (or primitive terms) are the basic building blocks that are not defined by other concepts within the system. Instead, their meaning and properties are implicitly described by the axioms. They are necessary to avoid infinite regress in definitions. Option A is incorrect; the existence of undefined terms is a necessary feature of axiomatic systems, not proof of their incompleteness. Option C is a common misconception; while they might seem intuitive, their meaning is formally derived from the axioms, not from a presumed universal understanding. Option D is incorrect; the goal of an axiomatic system is precision, not ambiguity.",
+          "difficulty": "medium",
+          "order": 3
+        },
+        {
+          "id": "q-1763980848467-4",
+          "question": "Consider the following JavaScript code snippet: `let config; console.log(config == null);`. What will be logged to the console and why?",
+          "options": [
+            "`false`, because `undefined` and `null` are strictly different types.",
+            "`true`, because the abstract equality operator (==) considers `undefined` and `null` to be equal.",
+            "A `TypeError`, because `config` has not been initialized and cannot be compared.",
+            "`false`, because `config` is `undefined` and has no properties to compare."
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is B. The variable `config` is declared but not initialized, so its value is `undefined`. The abstract equality operator (`==`) in JavaScript performs type coercion. A special rule in its algorithm states that `null == undefined` (and `undefined == null`) evaluates to `true`. Option A would be correct if the strict equality operator (`===`) were used, as `undefined === null` is `false`. Option C is incorrect; accessing the value of an uninitialized but declared variable is not an error, it simply yields `undefined`. Option D provides an irrelevant reason for the comparison's outcome.",
+          "difficulty": "medium",
+          "order": 4
+        },
+        {
+          "id": "q-1763980848467-5",
+          "question": "In database theory, how does the SQL `NULL` value relate to the concept of 'undefined'?",
+          "options": [
+            "SQL `NULL` is identical to JavaScript's `undefined`, representing a variable that has not been declared.",
+            "SQL `NULL` represents a missing or unknown value, which is conceptually similar to a value being undefined in a given context.",
+            "SQL `NULL` is a special zero value (0) used exclusively for numerical columns to save space.",
+            "SQL `NULL` is a string with the value 'NULL' and is used to indicate empty text fields."
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is B. SQL `NULL` is a special marker used to indicate that a data value does not exist in the database. This concept of a 'missing' or 'unknown' value is conceptually very similar to a value being 'undefined.' Option A is incorrect; `NULL` is about the value itself, not the declaration status of a column. Option C is wrong as `NULL` is distinct from zero and can be used in columns of any data type, not just numerical ones. Option D is incorrect; `NULL` is a special marker, not the string literal 'NULL'.",
+          "difficulty": "medium",
+          "order": 5
+        },
+        {
+          "id": "q-1763980848467-6",
+          "question": "What is the result of the expression `typeof undeclaredVariable` in JavaScript, assuming `undeclaredVariable` has not been declared with `let`, `const`, or `var`?",
+          "options": [
+            "It returns the string `'undefined'`.",
+            "It throws a `ReferenceError`.",
+            "It returns the value `null`.",
+            "It returns an empty string `''`."
+          ],
+          "correctAnswer": 0,
+          "explanation": "The correct answer is A. This is a unique and often surprising feature of JavaScript. The `typeof` operator is specifically designed to be safe to use on undeclared variables. Instead of throwing an error, it returns the string `'undefined'`. Option B, a `ReferenceError`, is what would be thrown if you tried to access the value of `undeclaredVariable` directly (e.g., `console.log(undeclaredVariable)`). Options C and D are incorrect return types for the `typeof` operator.",
+          "difficulty": "medium",
+          "order": 6
+        },
+        {
+          "id": "q-1763980848467-7",
+          "question": "In three-valued logic systems, a third truth value, often called 'Undefined' or 'Unknown,' is introduced alongside 'True' and 'False.' What kind of problem does this third value primarily help to model or solve?",
+          "options": [
+            "Situations involving paradoxes or non-terminating computations where a binary true/false value cannot be determined.",
+            "Proving that classical binary logic is mathematically incorrect and should be replaced.",
+            "Simplifying all logical expressions by completely eliminating the need for the 'NOT' operator.",
+            "Handling low-level computer hardware faults and memory corruption exclusively."
+          ],
+          "correctAnswer": 0,
+          "explanation": "The correct answer is A. Three-valued logic provides a formal way to handle statements whose truth value cannot be determined as either true or false within a binary system. This is useful for representing paradoxes (like the liar paradox), statements about future events, or the results of operations with non-terminating computations (e.g., in computer science). Option B is incorrect; it doesn't prove binary logic is 'incorrect,' but rather shows it's insufficient for certain domains. Option C is incorrect; the 'NOT' operator still exists and has defined behavior for the 'Undefined' value. Option D is incorrect; while it has applications in computing, its scope is much broader than just hardware faults.",
+          "difficulty": "medium",
+          "order": 7
+        },
+        {
+          "id": "q-1763980848467-8",
+          "question": "A function `getUser(id)` might return a user object or `undefined` if the user is not found. Which of the following is the most robust and modern JavaScript syntax to get the user's `name` property, or assign a default value of 'Guest' if the user or the name is missing?",
+          "options": [
+            "const name = getUser(id).name || 'Guest';",
+            "const name = getUser(id) && getUser(id).name ? getUser(id).name : 'Guest';",
+            "const name = (getUser(id) || {}).name || 'Guest';",
+            "const name = getUser(id)?.name ?? 'Guest';"
+          ],
+          "correctAnswer": 3,
+          "explanation": "The correct answer is D. This option uses two modern operators for a clean and robust solution. The optional chaining operator (`?.`) safely attempts to access the `name` property; if `getUser(id)` returns `undefined`, the expression evaluates to `undefined` without an error. The nullish coalescing operator (`??`) then checks if the result is `null` or `undefined` and, if so, provides the default value 'Guest'. Option A will throw a `TypeError` if `getUser(id)` is `undefined`. Option B is inefficient as it calls the function three times. Option C works, but it's more verbose and less idiomatic than option D.",
+          "difficulty": "medium",
+          "order": 8
+        },
+        {
+          "id": "q-1763980848467-9",
+          "question": "Which statement correctly distinguishes between an 'undeclared' variable and a variable that is 'declared but assigned `undefined`' in JavaScript?",
+          "options": [
+            "Both will throw a `ReferenceError` when their value is accessed directly.",
+            "They are functionally identical in all situations and can be used interchangeably.",
+            "An undeclared variable has no binding in the execution context, while an `undefined` variable has a binding but no assigned value.",
+            "The `typeof` operator returns `'object'` for an undeclared variable and `'undefined'` for a variable assigned `undefined`."
+          ],
+          "correctAnswer": 2,
+          "explanation": "The correct answer is C. This is the core distinction. An undeclared variable does not exist in the memory of the current execution context. A variable declared with `let`, `const`, or `var` (e.g., `let x;`) does exist and has a memory space allocated, but its value is `undefined`. Option A is incorrect; only the undeclared variable throws a `ReferenceError` on direct access. Option B is incorrect because they behave differently, as noted in option A. Option D is incorrect; the `typeof` operator returns the string `'undefined'` for both, which is a key reason they can be confused.",
+          "difficulty": "medium",
+          "order": 9
+        }
+      ],
+      "materialId": "8b4f81a14d4cbf6c1dada06676878993",
+      "status": "published",
+      "timeLimit": 60,
+      "tags": [
+        "auto-generated",
+        "medium"
+      ],
+      "id": "1763980848468-akcfuw1uu",
+      "createdAt": "2025-11-24T10:40:48.468Z",
+      "updatedAt": "2025-11-24T10:40:48.468Z"
+    },
+    {
+      "title": "Quiz: Exam Prep - 11/19/2025",
+      "description": "Auto-generated medium quiz with 10 questions",
+      "questions": [
+        {
+          "id": "q-1764249140776-0",
+          "question": "A city's population dynamics are modeled by xk+1 = Mxk, where xk is a vector of populations in the city and suburbs, and M = [[0.95, 0.03], [0.05, 0.97]] is the migration matrix. What does the entry m21 = 0.05 represent?",
+          "options": [
+            "5% of the suburban population moves to the city each year.",
+            "The total population of the suburbs grows by 5% each year.",
+            "5% of the city's population moves to the suburbs each year.",
+            "95% of the city's population stays in the city."
+          ],
+          "correctAnswer": 2,
+          "explanation": "The entry m_ij in a migration matrix represents the proportion of the population from region j that moves to region i. Here, m21 is in the second row (representing the 'to' destination: suburbs) and the first column (representing the 'from' origin: city). Therefore, it signifies that 5% of the city's population moves to the suburbs each year. Option A is incorrect as it describes m12. Option B is incorrect as it describes net growth, not a specific migration flow. Option D describes m11, not m21.",
+          "difficulty": "medium",
+          "order": 0
+        },
+        {
+          "id": "q-1764249140776-1",
+          "question": "Let A be a 4x3 matrix, B be a 3x5 matrix, and C be a 5x2 matrix. Which of the following matrix products is undefined?",
+          "options": [
+            "AB",
+            "BC",
+            "A(BC)",
+            "AC"
+          ],
+          "correctAnswer": 3,
+          "explanation": "The product of two matrices XY is defined only if the number of columns in X equals the number of rows in Y. For option D (AC), matrix A has 3 columns and matrix C has 5 rows. Since the inner dimensions (3 and 5) do not match, the product AC is undefined. Option A (AB) is defined because A is 4x3 and B is 3x5 (3=3). Option B (BC) is defined because B is 3x5 and C is 5x2 (5=5). Option C (A(BC)) is defined because BC results in a 3x2 matrix, and A (4x3) can be multiplied by this result (3=3).",
+          "difficulty": "medium",
+          "order": 1
+        },
+        {
+          "id": "q-1764249140776-2",
+          "question": "If an n x n matrix A is invertible, what can be concluded about the linear system Ax = b?",
+          "options": [
+            "The system has a solution only if b is the zero vector.",
+            "The system has infinitely many solutions for any n-dimensional vector b.",
+            "The system may have no solution for some n-dimensional vectors b.",
+            "The system has exactly one solution for any n-dimensional vector b."
+          ],
+          "correctAnswer": 3,
+          "explanation": "A fundamental property of invertible matrices is that they guarantee a unique solution for the system Ax = b. The solution is given by x = A⁻¹b. Since A⁻¹ exists and is unique, the product A⁻¹b is also a unique vector for any given vector b. Therefore, the system has exactly one solution. The other options describe scenarios for non-invertible (singular) matrices.",
+          "difficulty": "medium",
+          "order": 2
+        },
+        {
+          "id": "q-1764249140776-3",
+          "question": "Let A and B be two n x n matrices. Which of the following expressions is the correct formula for the transpose of their product, (AB)ᵀ?",
+          "options": [
+            "AᵀBᵀ",
+            "BᵀAᵀ",
+            "(AᵀBᵀ)ᵀ",
+            "AᵀB"
+          ],
+          "correctAnswer": 1,
+          "explanation": "A key property of matrix transposes, often called the 'reversal rule', is that the transpose of a product of matrices is the product of their transposes in the reverse order. Therefore, (AB)ᵀ = BᵀAᵀ. Option A is a common mistake that ignores this reversal rule. Option C simplifies to BA, which is incorrect. Option D is not a valid matrix property.",
+          "difficulty": "medium",
+          "order": 3
+        },
+        {
+          "id": "q-1764249140776-4",
+          "question": "The elementary matrix E = [[1, 0, 0], [0, 1, 0], [-4, 0, 1]] is obtained from the 3x3 identity matrix I₃. Which elementary row operation does left-multiplication by E perform on a 3x n matrix A?",
+          "options": [
+            "Replaces row 1 with row 1 minus 4 times row 3.",
+            "Swaps row 1 and row 3.",
+            "Replaces row 3 with row 3 minus 4 times row 1.",
+            "Scales row 3 by a factor of -4."
+          ],
+          "correctAnswer": 2,
+          "explanation": "An elementary matrix performs a row operation on a matrix A when it left-multiplies A. To identify the operation, observe how the identity matrix was changed to create E. The entry e₃₁ is -4, which means that -4 times row 1 was added to row 3 of the identity matrix. Thus, multiplying a matrix A by E on the left (EA) will perform the equivalent operation R₃ → R₃ - 4R₁ on A. Option A describes the operation corresponding to an elementary matrix with a -4 in the e₁₃ position. Options B and D correspond to different types of elementary row operations (swapping and scaling).",
+          "difficulty": "medium",
+          "order": 4
+        },
+        {
+          "id": "q-1764249140776-5",
+          "question": "Suppose A and B are invertible n x n matrices. If you need to solve the system of equations (AB)x = c for x, which of the following expressions correctly represents the solution?",
+          "options": [
+            "x = A⁻¹B⁻¹c",
+            "x = cA⁻¹B⁻¹",
+            "x = B⁻¹A⁻¹c",
+            "x = (BA)⁻¹c"
+          ],
+          "correctAnswer": 2,
+          "explanation": "To solve (AB)x = c, we must left-multiply both sides by the inverse of (AB). The formula for the inverse of a product of matrices is (AB)⁻¹ = B⁻¹A⁻¹. Therefore, x = (AB)⁻¹c = (B⁻¹A⁻¹)c. Option A incorrectly reverses the order of the inverse matrices. Option B is incorrect because matrix multiplication is not commutative, so c cannot be moved to the front. Option D is incorrect because (AB)⁻¹ is not equal to (BA)⁻¹ in general.",
+          "difficulty": "medium",
+          "order": 5
+        },
+        {
+          "id": "q-1764249140776-6",
+          "question": "Which of the following statements about matrix operations is ALWAYS true for any n x n matrices A, B, and C, where n > 1?",
+          "options": [
+            "AB = BA",
+            "If AB = 0, then either A = 0 or B = 0.",
+            "(A + B)² = A² + 2AB + B²",
+            "A(B + C) = AB + AC"
+          ],
+          "correctAnswer": 3,
+          "explanation": "Option D, the left distributive law, is a fundamental property of matrix algebra that always holds true. Option A is false because matrix multiplication is not commutative in general. Option B is false; there are non-zero matrices whose product is the zero matrix (these are called zero divisors). Option C is false because its expansion, (A+B)(A+B) = A² + AB + BA + B², only simplifies to A² + 2AB + B² if AB = BA, which is not always true.",
+          "difficulty": "medium",
+          "order": 6
+        },
+        {
+          "id": "q-1764249140776-7",
+          "question": "A vector x in R² is first transformed by a linear transformation T represented by matrix B, and then the resulting vector is transformed by another transformation S represented by matrix A. Which single matrix represents the composite transformation of applying T first, then S?",
+          "options": [
+            "BA",
+            "AB",
+            "A + B",
+            "B⁻¹A"
+          ],
+          "correctAnswer": 1,
+          "explanation": "The composition of linear transformations corresponds to matrix multiplication. If a vector x is first transformed by T, the result is y = Bx. This resulting vector y is then transformed by S, giving the final vector z = Ay. Substituting the expression for y gives z = A(Bx). Due to the associative property of matrix multiplication, this is equivalent to z = (AB)x. Therefore, the matrix for the composite transformation (T followed by S) is AB. Option A (BA) would represent applying S first, then T.",
+          "difficulty": "medium",
+          "order": 7
+        },
+        {
+          "id": "q-1764249140776-8",
+          "question": "A system's state is described by the linear difference equation xk+1 = Axk. If the initial state of the system is x₀, what is the state of the system at time k=3, i.e., x₃?",
+          "options": [
+            "x₃ = 3Ax₀",
+            "x₃ = A³x₀",
+            "x₃ = A²x₁",
+            "x₃ = (Aᵀ)³x₀"
+          ],
+          "correctAnswer": 1,
+          "explanation": "This question tests the iterative application of the difference equation. The state at k=1 is x₁ = Ax₀. The state at k=2 is x₂ = Ax₁ = A(Ax₀) = A²x₀. The state at k=3 is x₃ = Ax₂. Substituting the expression for x₂ gives: x₃ = A(A²x₀) = (AA²)x₀ = A³x₀. Option C is also correct (x₃ = A²x₁), but option B expresses the state in terms of the initial condition x₀, which is the standard form. Given the options, B is the most complete answer relating x₃ back to the initial state.",
+          "difficulty": "medium",
+          "order": 8
+        },
+        {
+          "id": "q-1764249140776-9",
+          "question": "Given the 2x2 matrix A = [[a, b], [c, d]], the formula for its inverse is A⁻¹ = (1/(ad-bc)) * [[d, -b], [-c, a]]. What is the primary implication of the condition ad-bc = 0?",
+          "options": [
+            "The matrix A is an identity matrix.",
+            "The matrix A is invertible, but its inverse is the zero matrix.",
+            "The matrix A is not invertible because division by zero is undefined.",
+            "The matrix A is guaranteed to be a diagonal matrix."
+          ],
+          "correctAnswer": 2,
+          "explanation": "The expression `ad - bc` is the determinant of the 2x2 matrix A. The formula for the inverse explicitly involves dividing by this determinant. If the determinant is zero, the expression 1/(ad-bc) becomes 1/0, which is undefined. Therefore, the inverse does not exist, and the matrix A is not invertible (it is singular). The other options are incorrect; a matrix with a zero determinant is not necessarily an identity, diagonal, or zero matrix.",
+          "difficulty": "medium",
+          "order": 9
+        }
+      ],
+      "materialId": "1a65a898cff31e94093df41fb21fe92f",
+      "status": "published",
+      "tags": [
+        "auto-generated",
+        "medium"
+      ],
+      "id": "1764249140776-1ti0ngdl3",
+      "createdAt": "2025-11-27T13:12:20.776Z",
+      "updatedAt": "2025-11-27T13:12:20.776Z"
+    },
+    {
+      "title": "Quiz: Summary - 11/16/2025",
+      "description": "Auto-generated medium quiz with 5 questions",
+      "questions": [
+        {
+          "id": "q-1764251439202-0",
+          "question": "According to the emotion map described in the study material, which combination of valence and arousal would most accurately represent a state of anxiety or anger?",
+          "options": [
+            "High Valence, High Arousal",
+            "Low Valence, High Arousal",
+            "Low Valence, Low Arousal",
+            "High Valence, Low Arousal"
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is Low Valence, High Arousal. Valence refers to how positive (high) or negative (low) an emotion feels. Anxiety and anger are negative emotions, so they have low valence. Arousal refers to the energy level of the emotion. Both anxiety and anger are high-energy states, so they have high arousal. Option A (High Valence, High Arousal) describes excitement or happiness. Option C (Low Valence, Low Arousal) describes sadness. Option D (High Valence, Low Arousal) describes a state of calm or relaxation.",
+          "difficulty": "medium",
+          "order": 0
+        },
+        {
+          "id": "q-1764251439202-1",
+          "question": "The study highlights that a Deep Neural Network (DNN) significantly outperformed models like Random Forest. What is the most fundamental reason for this superior performance in the context of EEG data?",
+          "options": [
+            "DNNs process the 120-point data signatures much faster than traditional models.",
+            "DNNs are better suited for handling the complex, nonlinear patterns inherent in emotional brainwave activity.",
+            "DNNs exclusively use the image-based approach, which is inherently more accurate.",
+            "DNNs require less feature engineering because they can interpret raw EEG signals directly without statistical clues."
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is that DNNs are designed to recognize complex, nonlinear patterns. The material explicitly states that emotional brain activity is a 'complex, tangled web of interactions' and that DNNs, with their multiple layers, are built to learn these intricate patterns that simpler models cannot see. Option A is incorrect because while processing speed can be a factor, the primary reason for the accuracy difference is the model's ability to handle complexity, not its speed. Option C is incorrect because the material indicates the DNN was used in the feature-based approach as well, and it doesn't claim one approach is inherently superior, only that the DNN model was. Option D is incorrect because the study describes a methodical feature engineering process (creating the 120-point signature) that was used to feed the AI models, including the DNN.",
+          "difficulty": "medium",
+          "order": 1
+        },
+        {
+          "id": "q-1764251439202-2",
+          "question": "A researcher is attempting to create the '120-point data signature' for a single emotional moment as described in the study. Which of the following best describes the process they would follow?",
+          "options": [
+            "Measure the valence and arousal directly from 120 different brain channels.",
+            "Select a 4-second window of EEG data, and for each of the 12 monitored channels, calculate 10 statistical clues like signal fluctuation and complexity.",
+            "Convert a 120-second EEG recording into a single heatmap image for the AI to analyze.",
+            "Identify 120 distinct brainwave frequencies and measure the power of each one to form the signature."
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer accurately describes the methodical process outlined in the material. The process involves: 1) chopping data into small time windows (4-seconds), 2) looking at multiple brain channels (12), and 3) calculating a set number of statistical clues (10) for each channel. This results in a 12 channel * 10 clues/channel = 120-point signature. Option A is incorrect because valence and arousal are the outputs the model predicts, not the input features, and it uses 12 channels, not 120. Option C confuses the feature-based approach with the image-based one and uses an incorrect time window. Option D is incorrect because the signature is composed of various statistical clues, not just the power of 120 different frequencies.",
+          "difficulty": "medium",
+          "order": 2
+        },
+        {
+          "id": "q-1764251439202-3",
+          "question": "If a research team decides to convert raw EEG data into colorful scalp heatmaps and then train an AI to find emotional patterns, which methodology are they employing?",
+          "options": [
+            "The feature-based approach, using a Random Forest model.",
+            "The image-based approach, using an image recognition AI.",
+            "The feature-engineering approach, using an alpha-band power detector.",
+            "The valence-arousal approach, using a Deep Neural Network."
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is the image-based approach. The material explicitly defines this strategy as turning 'brain activity into these colorful heat maps of the scalp' and then having a 'powerful image recognition AI try to learn the visual patterns.' Option A is incorrect because heatmaps are not part of the feature-based approach, which uses numerical data. Option C is incorrect because feature engineering is a step in the process, not the overall methodology, and an alpha-band detector is too specific a tool. Option D is incorrect because the valence-arousal map is the conceptual framework for emotions, not the AI training methodology itself.",
+          "difficulty": "medium",
+          "order": 3
+        },
+        {
+          "id": "q-1764251439202-4",
+          "question": "The study material suggests that this technology could lead to 'a machine know[ing] you better than you know yourself.' What is the most likely scientific basis for this claim?",
+          "options": [
+            "The AI can predict a person's future emotions with near-perfect accuracy.",
+            "The AI can detect subtle, subconscious shifts in brain activity signaling an emotion before the person is consciously aware of it.",
+            "The AI is capable of reading a person's specific thoughts and intentions, not just their general emotional state.",
+            "The AI's 91.16% accuracy is statistically higher than the average human's ability to self-report their own feelings accurately."
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is based on the idea that EEG provides a direct, 'unfiltered' window into brain activity. The AI can identify minute patterns associated with the onset of an emotional state (like anxiety) before the individual consciously processes and labels that feeling. This is the core of detecting shifts before self-awareness. Option A is an overstatement; the study demonstrates high accuracy in classification, not perfect future prediction. Option C is incorrect as the research is focused on decoding emotional states (valence/arousal), not specific thoughts, which is a far more complex challenge. While Option D may be true, it is a consequence of the phenomenon described in Option B, which is the more fundamental reason and the direct implication of using unfiltered brain signals.",
+          "difficulty": "medium",
+          "order": 4
+        }
+      ],
+      "materialId": "eb0853e68851de06a88f585113b65abf",
+      "status": "published",
+      "tags": [
+        "auto-generated",
+        "medium"
+      ],
+      "id": "1764251439203-1gmp67yqf",
+      "createdAt": "2025-11-27T13:50:39.203Z",
+      "updatedAt": "2025-11-27T13:50:39.203Z"
+    },
+    {
+      "title": "Quiz: 22-23_MATH250_Lecture8_new.pdf",
+      "description": "Auto-generated medium quiz with 10 questions",
+      "questions": [
+        {
+          "id": "q-1764259940391-0",
+          "question": "Consider the set V = {(x, y) : x ≥ 0, y ≥ 0} with standard vector addition and scalar multiplication. Which vector space axiom is violated, preventing V from being a vector space?",
+          "options": [
+            "Closure under addition (Axiom 1)",
+            "Existence of a zero vector (Axiom 4)",
+            "Existence of an additive inverse (Axiom 5)",
+            "Closure under scalar multiplication (Axiom 6)"
+          ],
+          "correctAnswer": 2,
+          "explanation": "The correct answer is 'Existence of an additive inverse (Axiom 5)'. For a set to be a vector space, every vector u in V must have a unique additive inverse -u also in V such that u + (-u) = 0. In this set V, if we take a vector like u = (1, 1), which is in V because both components are non-negative, its additive inverse would be -u = (-1, -1). However, (-1, -1) is not in V because its components are negative, violating the condition x ≥ 0, y ≥ 0. Therefore, Axiom 5 is violated.\n\n'Closure under addition (Axiom 1)' is not violated, as adding two vectors with non-negative components will result in a vector with non-negative components. 'Existence of a zero vector (Axiom 4)' is not violated, as (0, 0) is in V. 'Closure under scalar multiplication (Axiom 6)' is not generally violated for positive scalars, but if we consider a negative scalar, it would lead to the same issue as the additive inverse, which is a specific case of scalar multiplication by -1. However, Axiom 5 directly addresses the existence of an additive inverse as a distinct property.",
+          "difficulty": "medium",
+          "order": 0
+        },
+        {
+          "id": "q-1764259940391-1",
+          "question": "Which of the following is NOT a required property for a non-empty subset H of a vector space V to be considered a subspace of V?",
+          "options": [
+            "The zero vector of V must be in H.",
+            "H must be closed under vector addition.",
+            "H must be closed under scalar multiplication.",
+            "H must contain a basis for V."
+          ],
+          "correctAnswer": 3,
+          "explanation": "The correct answer is 'H must contain a basis for V.' The definition of a subspace H of a vector space V requires three properties: (a) the zero vector of V is in H, (b) H is closed under vector addition (u+v is in H for all u, v in H), and (c) H is closed under multiplication by scalars (cu is in H for all u in H and scalar c). These three properties ensure that H is itself a vector space. A subspace H does not necessarily need to contain a basis for the *entire* vector space V; it only needs to have a basis for itself. For example, a line through the origin in R^3 is a subspace but does not contain a basis for R^3 (which requires three linearly independent vectors).",
+          "difficulty": "medium",
+          "order": 1
+        },
+        {
+          "id": "q-1764259940391-2",
+          "question": "If v1 and v2 are vectors in a vector space V, which statement correctly describes the set H = Span{v1, v2}?",
+          "options": [
+            "H is the set of all vectors that are scalar multiples of v1.",
+            "H is a vector space if and only if v1 and v2 are linearly independent.",
+            "H is always a subspace of V, consisting of all linear combinations of v1 and v2.",
+            "H is a subset of V, but is not necessarily a subspace unless V = R^n."
+          ],
+          "correctAnswer": 2,
+          "explanation": "The correct answer is 'H is always a subspace of V, consisting of all linear combinations of v1 and v2.' The study material explicitly states: 'If v1,...,vp are in a vector space V, then Span {v1,...,vp} is a subspace of V.' By definition, Span {v1,...,vp} denotes the set of all vectors that can be written as linear combinations of v1,...,vp.\n\n'H is the set of all vectors that are scalar multiples of v1' is incorrect because it only describes Span{v1}, not Span{v1, v2}, which includes linear combinations of both vectors. 'H is a vector space if and only if v1 and v2 are linearly independent' is incorrect; Span{v1, v2} is always a subspace (and thus a vector space itself), regardless of whether v1 and v2 are linearly independent. If they are linearly dependent, the span might simply be a 'smaller' subspace (e.g., a line instead of a plane). 'H is a subset of V, but is not necessarily a subspace unless V = R^n' is incorrect because Span{v1, v2} is always a subspace for any vector space V, not just R^n.",
+          "difficulty": "medium",
+          "order": 2
+        },
+        {
+          "id": "q-1764259940391-3",
+          "question": "For an m x n matrix A, which statement about its null space, Nul A, is true?",
+          "options": [
+            "Nul A is a subspace of R^m.",
+            "Nul A is the set of all vectors x such that Ax = b for some non-zero vector b.",
+            "Nul A is implicitly defined as the set of all solutions to the homogeneous equation Ax = 0.",
+            "Nul A contains non-zero vectors if and only if the columns of A are linearly independent."
+          ],
+          "correctAnswer": 2,
+          "explanation": "The correct answer is 'Nul A is implicitly defined as the set of all solutions to the homogeneous equation Ax = 0.' The definition provided states: 'The null space of an m x n matrix A, written as Nul A, is the set of all solutions of the homogeneous equation Ax = 0. In set notation, Nul A = {x : x is in R^n and Ax = 0}.' It also notes that 'Nul A is defined implicitly, because it is defined by a condition that must be checked.'\n\n'Nul A is a subspace of R^m' is incorrect; Nul A is a subspace of R^n because A has n columns, and the vectors x are in R^n. 'Nul A is the set of all vectors x such that Ax = b for some non-zero vector b' is incorrect; this describes the set of solutions for a non-homogeneous equation, not the null space which is specifically for Ax=0. 'Nul A contains non-zero vectors if and only if the columns of A are linearly independent' is incorrect; Nul A contains non-zero vectors if and only if the columns of A are *linearly dependent* (i.e., Ax=0 has non-trivial solutions).",
+          "difficulty": "medium",
+          "order": 3
+        },
+        {
+          "id": "q-1764259940391-4",
+          "question": "Given an m x n matrix A, what is the primary way to explicitly describe its column space, Col A?",
+          "options": [
+            "Col A is the set of all solutions to Ax = 0.",
+            "Col A is the set of all vectors b for which the equation Ax = b is inconsistent.",
+            "Col A is the set of all linear combinations of the rows of A.",
+            "Col A is the set of all linear combinations of the columns of A."
+          ],
+          "correctAnswer": 3,
+          "explanation": "The correct answer is 'Col A is the set of all linear combinations of the columns of A.' The definition states: 'The column space of an m x n matrix A, written as Col A, is the set of all linear combinations of the columns of A.' This is an explicit definition, meaning you are told how to 'build' vectors in Col A.\n\n'Col A is the set of all solutions to Ax = 0' describes the null space (Nul A), not the column space. 'Col A is the set of all vectors b for which the equation Ax = b is inconsistent' is incorrect; Col A is the set of all vectors b for which Ax=b *is consistent*. 'Col A is the set of all linear combinations of the rows of A' describes the row space (Row A), not the column space.",
+          "difficulty": "medium",
+          "order": 4
+        },
+        {
+          "id": "q-1764259940391-5",
+          "question": "If A is an m x n matrix, the row space of A, denoted Row A, is:",
+          "options": [
+            "A subspace of R^m.",
+            "The same as Nul A.",
+            "The set of all linear combinations of the row vectors of A, and is a subspace of R^n.",
+            "The set of all solutions to A^T x = 0."
+          ],
+          "correctAnswer": 2,
+          "explanation": "The correct answer is 'The set of all linear combinations of the row vectors of A, and is a subspace of R^n.' The study material defines the row space: 'If A is an m x n matrix, each row of A has n entries and thus can be identified with a vector in R^n. The set of all linear combinations of the row vectors is called the row space of A and is denoted by Row A. Each row has n entries, so Row A is a subspace of R^n.'\n\n'A subspace of R^m' is incorrect; the row vectors have n entries, so Row A is a subspace of R^n. 'The same as Nul A' is incorrect; Nul A and Row A are generally different subspaces, though they are related (they are orthogonal complements). 'The set of all solutions to A^T x = 0' describes the null space of A^T, which is related to the column space of A (it's the orthogonal complement of Col A), but not directly the definition of Row A.",
+          "difficulty": "medium",
+          "order": 5
+        },
+        {
+          "id": "q-1764259940391-6",
+          "question": "For a linear transformation T from a vector space V to a vector space W, what does its kernel (or null space) represent?",
+          "options": [
+            "The set of all vectors in W that are images of vectors in V.",
+            "The set of all vectors u in V such that T(u) is the zero vector in W.",
+            "The set of all vectors x in W such that T(x) is defined.",
+            "The set of all vectors u in V such that T(u) is non-zero."
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is 'The set of all vectors u in V such that T(u) is the zero vector in W.' The study material defines the kernel: 'The kernel (or null space) of such a T is the set of all u in V such that T(u) = 0 (the zero vector in W).' This is analogous to the null space of a matrix, which is the set of vectors mapped to the zero vector.\n\n'The set of all vectors in W that are images of vectors in V' describes the range of the linear transformation, not the kernel. 'The set of all vectors x in W such that T(x) is defined' is incorrect; the domain of T is V, so x would be in V, not W. 'The set of all vectors u in V such that T(u) is non-zero' is the complement of the kernel within V, not the kernel itself.",
+          "difficulty": "medium",
+          "order": 6
+        },
+        {
+          "id": "q-1764259940391-7",
+          "question": "One major distinction between the Null Space (Nul A) and the Column Space (Col A) of an m x n matrix A is that:",
+          "options": [
+            "Nul A is a subspace of R^m, while Col A is a subspace of R^n.",
+            "Nul A is implicitly defined by a condition (Ax=0), while Col A is explicitly defined by how its vectors are built (linear combinations of columns).",
+            "Vectors in Nul A are easy to find, whereas finding vectors in Col A requires row operations.",
+            "Nul A is always {0}, while Col A is always R^m."
+          ],
+          "correctAnswer": 1,
+          "explanation": "The correct answer is 'Nul A is implicitly defined by a condition (Ax=0), while Col A is explicitly defined by how its vectors are built (linear combinations of columns).' This is a direct contrast highlighted in the study material: 'Nul A is implicitly defined; i.e., you are given only a condition that vectors in Nul A must satisfy (Ax=0). Col A is explicitly defined; i.e., you are told how to build vectors in Col A (linear combinations of columns of A).'\n\n'Nul A is a subspace of R^m, while Col A is a subspace of R^n' is incorrect; Nul A is a subspace of R^n, and Col A is a subspace of R^m. 'Vectors in Nul A are easy to find, whereas finding vectors in Col A requires row operations' is incorrect; the opposite is generally true. Finding vectors in Nul A requires row operations to solve Ax=0, while vectors in Col A are easily found by taking linear combinations of A's columns. 'Nul A is always {0}, while Col A is always R^m' is incorrect; Nul A is {0} if and only if A has linearly independent columns, and Col A is R^m if and only if A has m pivot positions (or maps R^n onto R^m).",
+          "difficulty": "medium",
+          "order": 7
+        },
+        {
+          "id": "q-1764259940391-8",
+          "question": "Consider the set H of vectors in R^3 of the form (x, y, 0), where x and y are any real numbers. Is H a subspace of R^3?",
+          "options": [
+            "No, because it does not contain the zero vector of R^3.",
+            "No, because it is not closed under scalar multiplication if the scalar is negative.",
+            "Yes, because it contains the zero vector, and is closed under addition and scalar multiplication.",
+            "Yes, because R^2 is a subspace of R^3."
+          ],
+          "correctAnswer": 2,
+          "explanation": "The correct answer is 'Yes, because it contains the zero vector, and is closed under addition and scalar multiplication.' To be a subspace, H must satisfy three conditions:\n1.  **Zero vector:** The zero vector of R^3 is (0, 0, 0). Since (0, 0, 0) fits the form (x, y, 0) by setting x=0 and y=0, it is in H. (Condition satisfied)\n2.  **Closure under addition:** Let u = (x1, y1, 0) and v = (x2, y2, 0) be two vectors in H. Their sum is u + v = (x1+x2, y1+y2, 0). This sum is also of the form (x, y, 0), so it is in H. (Condition satisfied)\n3.  **Closure under scalar multiplication:** Let u = (x1, y1, 0) be in H and c be any scalar. The scalar multiple is c*u = (c*x1, c*y1, 0). This vector is also of the form (x, y, 0), so it is in H. (Condition satisfied)\n\nSince all three conditions are met, H is a subspace of R^3.\n\n'No, because it does not contain the zero vector of R^3' is false, as (0,0,0) is in H. 'No, because it is not closed under scalar multiplication if the scalar is negative' is false, as shown above, it is closed for all scalars. 'Yes, because R^2 is a subspace of R^3' is an incorrect justification; R^2 is not a subspace of R^3 because R^2 is not even a subset of R^3 (vectors in R^2 have two entries, vectors in R^3 have three). The set H *acts* like R^2 but is a distinct subset of R^3.",
+          "difficulty": "medium",
+          "order": 8
+        },
+        {
+          "id": "q-1764259940391-9",
+          "question": "When finding a spanning set for Nul A of a matrix A using the method described in the study material (solving Ax=0 by row reduction), what determines the number of vectors in the spanning set?",
+          "options": [
+            "The number of rows in the matrix A.",
+            "The number of basic variables in the equation Ax = 0.",
+            "The number of free variables in the equation Ax = 0.",
+            "The rank of the matrix A."
+          ],
+          "correctAnswer": 2,
+          "explanation": "The correct answer is 'The number of free variables in the equation Ax = 0.' The study material explicitly states: 'When Nul A contains nonzero vectors, the number of vectors in the spanning set for Nul A equals the number of free variables in the equation Ax = 0.' The process involves expressing basic variables in terms of free variables, and then decomposing the general solution into a linear combination where the weights are the free variables, with each free variable corresponding to one vector in the spanning set.\n\n'The number of rows in the matrix A' is incorrect; the number of rows (m) determines the dimension of R^m, which is where Col A resides, not Nul A. 'The number of basic variables in the equation Ax = 0' is incorrect; basic variables are dependent, while free variables determine the basis vectors for Nul A. 'The rank of the matrix A' is incorrect; the rank is the number of pivot positions (which equals the number of basic variables), and the number of free variables is n - rank(A).",
+          "difficulty": "medium",
+          "order": 9
+        }
+      ],
+      "status": "published",
+      "tags": [
+        "auto-generated",
+        "medium"
+      ],
+      "id": "1764259940391-thq8sq7c8",
+      "createdAt": "2025-11-27T16:12:20.391Z",
+      "updatedAt": "2025-11-27T16:12:20.391Z"
+    },
+    {
+      "title": "Quiz: 22-23_MATH250_Lecture11_new.pdf",
+      "description": "Auto-generated medium quiz with 10 questions",
+      "questions": [
+        {
+          "id": "q-1764264954869-0",
+          "question": "Which of the following statements correctly defines an eigenvector and its corresponding eigenvalue for an n x n matrix A?",
+          "options": [
+            "An eigenvector x is a nonzero vector such that Ax = λx for some scalar λ, which is called an eigenvalue.",
+            "An eigenvector x is any vector such that Ax = λx for some scalar λ, which is called an eigenvalue.",
+            "An eigenvector x is a nonzero vector such that Ax = x for some scalar λ, which is called an eigenvalue.",
+            "An eigenvalue λ is a scalar such that Ax = λx for any nonzero vector x, which is called an eigenvector.",
+            "An eigenvector x is a nonzero vector such that Ax = 0 for some scalar λ, which is called an eigenvalue."
+          ],
+          "correctAnswer": 0,
+          "explanation": "According to Slide 5.1-2, an eigenvector of an n x n matrix A is a nonzero vector x such that Ax = λx for some scalar λ. This scalar λ is called an eigenvalue of A if there is a nontrivial solution x. Option A correctly states both parts of the definition. Option B is incorrect because an eigenvector must be a nonzero vector. Option C incorrectly states Ax=x instead of Ax=λx. Option D incorrectly implies that Ax=λx must hold for *any* nonzero vector x, which is not true; it holds for a *specific* nonzero vector x (the eigenvector). Option E incorrectly sets the equation to Ax=0.",
+          "difficulty": "medium",
+          "order": 0
+        },
+        {
+          "id": "q-1764264954869-1",
+          "question": "The eigenspace of an n x n matrix A corresponding to an eigenvalue λ is defined as:",
+          "options": [
+            "The set of all eigenvectors corresponding to λ, excluding the zero vector.",
+            "The null space of the matrix (A - λI).",
+            "The column space of the matrix (A - λI).",
+            "The set of all solutions to the equation Ax = 0.",
+            "The set of all nonzero solutions to the equation Ax = λx."
+          ],
+          "correctAnswer": 1,
+          "explanation": "Slide 5.1-4 states that the eigenspace of A corresponding to λ is the set of all solutions of the equation (λI - A)x = 0, or equivalently (A - λI)x = 0. This set is precisely the null space of the matrix (A - λI). Option A is partially correct but incomplete; the eigenspace includes the zero vector, while eigenvectors by definition are nonzero. Option C describes the range of the matrix, not the eigenspace. Option D describes the null space of A, which is only related to the eigenspace if λ=0. Option E is similar to A but doesn't explicitly define it as a null space.",
+          "difficulty": "medium",
+          "order": 1
+        },
+        {
+          "id": "q-1764264954869-2",
+          "question": "To determine if a scalar λ is an eigenvalue of an n x n matrix A, one must check if the equation (A - λI)x = 0 has a nontrivial solution. What does the existence of such a nontrivial solution imply about the matrix (A - λI)?",
+          "options": [
+            "The columns of (A - λI) are linearly independent.",
+            "The matrix (A - λI) is invertible.",
+            "The determinant of (A - λI) is nonzero.",
+            "The matrix (A - λI) is singular (non-invertible).",
+            "The null space of (A - λI) contains only the zero vector."
+          ],
+          "correctAnswer": 3,
+          "explanation": "According to Slide 5.1-3, λ is an eigenvalue of A if and only if the equation (A - λI)x = 0 has a nontrivial solution. The existence of a nontrivial solution for a homogeneous system implies that the matrix of the system is singular (non-invertible). If a matrix is singular, its columns are linearly dependent, its determinant is zero, and its null space contains nontrivial vectors. Therefore, option D is correct. Options A, B, C, and E would all be true if (A - λI)x = 0 only had the trivial solution, which would mean λ is not an eigenvalue.",
+          "difficulty": "medium",
+          "order": 2
+        },
+        {
+          "id": "q-1764264954869-3",
+          "question": "Consider a triangular matrix A. What is a key property regarding its eigenvalues?",
+          "options": [
+            "Its eigenvalues are always zero.",
+            "Its eigenvalues are the entries on its main diagonal.",
+            "Its eigenvalues are always distinct.",
+            "Its eigenvalues are always complex numbers.",
+            "Its eigenvalues must be calculated using the characteristic equation, as there's no shortcut."
+          ],
+          "correctAnswer": 1,
+          "explanation": "Slide 5.1-11 states Property 1: 'The eigenvalues of a triangular matrix are the entries on its main diagonal.' This is a direct property that simplifies finding eigenvalues for such matrices. Options A, C, and D are generally false. Option E is incorrect because the property provides a direct method, making the characteristic equation calculation trivial in this specific case.",
+          "difficulty": "medium",
+          "order": 3
+        },
+        {
+          "id": "q-1764264954869-4",
+          "question": "If v1, ..., vr are eigenvectors that correspond to distinct eigenvalues λ1, ..., λr of an n x n matrix A, what can be concluded about the set {v1, ..., vr}?",
+          "options": [
+            "The set {v1, ..., vr} is linearly dependent.",
+            "The set {v1, ..., vr} forms a basis for R^n.",
+            "The set {v1, ..., vr} is linearly independent.",
+            "The vectors v1, ..., vr must all be the zero vector.",
+            "The set {v1, ..., vr} spans the eigenspace corresponding to λ1."
+          ],
+          "correctAnswer": 2,
+          "explanation": "Property 2 on Slide 5.1-12 states: 'If v1, ..., vr are eigenvectors that correspond to distinct eigenvalues λ1, ..., λr of an n x n matrix A, then the set {v1, ..., vr} is linearly independent.' This is a fundamental property. Option A is the opposite of the correct statement. Option B is not necessarily true unless r=n and the vectors are linearly independent, which is a specific case of the property. Option D is incorrect as eigenvectors are by definition nonzero. Option E is incorrect because the vectors correspond to *distinct* eigenvalues, not just λ1.",
+          "difficulty": "medium",
+          "order": 4
+        },
+        {
+          "id": "q-1764264954869-5",
+          "question": "The scalar equation det(A - λI) = 0 is crucial for finding eigenvalues. What is this equation called?",
+          "options": [
+            "The characteristic polynomial.",
+            "The determinant equation.",
+            "The characteristic equation of A.",
+            "The identity equation.",
+            "The eigenvalue equation."
+          ],
+          "correctAnswer": 2,
+          "explanation": "Slide 5.2-24 explicitly defines 'The scalar equation det(λI - A) = 0' (or equivalently det(A - λI) = 0) as 'the characteristic equation of A.' It further states that a scalar λ is an eigenvalue if and only if it satisfies this equation. Option A refers to the polynomial resulting from expanding the determinant, not the equation itself. Options B, D, and E are not the standard terminology.",
+          "difficulty": "medium",
+          "order": 5
+        },
+        {
+          "id": "q-1764264954869-6",
+          "question": "An eigenvalue λ is said to have an 'algebraic multiplicity'. What does this term refer to?",
+          "options": [
+            "The number of linearly independent eigenvectors corresponding to λ.",
+            "The dimension of the eigenspace corresponding to λ.",
+            "The number of times λ appears as a factor of the characteristic polynomial.",
+            "The value of λ itself, when it is an integer.",
+            "The number of distinct eigenvalues of the matrix."
+          ],
+          "correctAnswer": 2,
+          "explanation": "Slide 5.2-27 defines algebraic multiplicity: 'In general, the (algebraic) multiplicity of an eigenvalue λ is its multiplicity as a root of the characteristic equation.' This means how many times the factor (λ - λ_i) appears in the characteristic polynomial. Option A and B refer to the 'geometric multiplicity' (dimension of the eigenspace), which is related but distinct from algebraic multiplicity. Option D and E are incorrect definitions.",
+          "difficulty": "medium",
+          "order": 6
+        },
+        {
+          "id": "q-1764264954869-7",
+          "question": "If matrices A and B are similar, which of the following statements is always true?",
+          "options": [
+            "A and B are row equivalent.",
+            "A and B have the same eigenvectors.",
+            "A and B have the same characteristic polynomial and hence the same eigenvalues (with the same multiplicities).",
+            "A and B are identical matrices.",
+            "A and B are similar only if one is a diagonal matrix."
+          ],
+          "correctAnswer": 2,
+          "explanation": "Property 4 on Slide 5.2-30 states: 'If matrices A and B are similar, then they have the same characteristic polynomial and hence the same eigenvalues (with the same multiplicities).' This is a direct consequence of similarity. Slide 5.2-32 explicitly warns that similarity is not the same as row equivalence (Option A). Similar matrices do not necessarily have the same eigenvectors (Option B) or be identical (Option D). Option E is incorrect as similar matrices can be non-diagonal.",
+          "difficulty": "medium",
+          "order": 7
+        },
+        {
+          "id": "q-1764264954869-8",
+          "question": "According to the Diagonalization Theorem, an n x n matrix A is diagonalizable if and only if which of the following conditions is met?",
+          "options": [
+            "A has at least one distinct eigenvalue.",
+            "A has n distinct eigenvalues.",
+            "A has n linearly independent eigenvectors.",
+            "A is similar to an identity matrix.",
+            "The determinant of A is non-zero."
+          ],
+          "correctAnswer": 2,
+          "explanation": "The Diagonalization Theorem (Slide 5.2-35) explicitly states: 'An n x n matrix A is diagonalizable if and only if A has n linearly independent eigenvectors.' This is the core condition. While having n distinct eigenvalues (Option B) is a *sufficient* condition for diagonalizability (Slide 5.2-41), it is not a *necessary* one (as shown by examples where eigenvalues are not distinct but the matrix is still diagonalizable). Options A, D, and E are incorrect conditions for diagonalizability.",
+          "difficulty": "medium",
+          "order": 8
+        },
+        {
+          "id": "q-1764264954869-9",
+          "question": "For an n x n matrix A to be diagonalizable, even if it has fewer than n distinct eigenvalues, what two crucial conditions must be met according to the theorem on Slide 5.2-42?",
+          "options": [
+            "The characteristic polynomial must have at least one real root, and the dimension of each eigenspace must be equal to the multiplicity of its eigenvalue.",
+            "The characteristic polynomial must factor completely into linear factors, and the sum of the dimensions of the eigenspaces must equal n.",
+            "The matrix A must be invertible, and the dimension of each eigenspace must be greater than its eigenvalue's multiplicity.",
+            "The characteristic polynomial must have distinct roots, and the sum of the dimensions of the eigenspaces must equal n.",
+            "The matrix A must be symmetric, and the dimension of each eigenspace must be equal to the multiplicity of its eigenvalue."
+          ],
+          "correctAnswer": 1,
+          "explanation": "Slide 5.2-42, Theorem (b), states that 'The matrix A is diagonalizable if and only if the sum of the dimensions of the eigenspaces equals n, and this happens if and only if (i) the characteristic polynomial factors completely into linear factors and (ii) the dimension of the eigenspace for each λk equals the multiplicity of λk.' Option B correctly combines the first part of this 'if and only if' statement and the condition (i), which implies condition (ii) when the sum of dimensions equals n. Option A incorrectly states 'at least one real root' and only half of the second condition. Option C provides irrelevant conditions. Option D incorrectly demands distinct roots, which is a sufficient but not necessary condition. Option E introduces 'symmetric' which is not a general condition for diagonalizability discussed here, and only partially states the second condition.",
+          "difficulty": "medium",
+          "order": 9
+        }
+      ],
+      "status": "published",
+      "tags": [
+        "auto-generated",
+        "medium"
+      ],
+      "id": "1764264954869-xdm2aeqig",
+      "createdAt": "2025-11-27T17:35:54.869Z",
+      "updatedAt": "2025-11-27T17:35:54.869Z"
+    }
+  ],
+  "lastUpdated": "2025-11-27T17:35:54.872Z"
+}

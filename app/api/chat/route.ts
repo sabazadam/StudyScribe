@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getModelById, type ModelTier } from '@/lib/models';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -7,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { question, transcript, studyMaterials, conversationHistory } = body;
+    const { question, transcript, studyMaterials, conversationHistory, modelTier } = body;
 
     if (!question) {
       return NextResponse.json(
@@ -23,8 +24,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the appropriate model (using Gemini 2.5 Flash for best performance)
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    // Get the appropriate model based on user selection
+    const selectedModel = getModelById((modelTier as ModelTier) || 'default');
+    console.log('Using model:', selectedModel, 'for chat');
+    const model = genAI.getGenerativeModel({ model: selectedModel });
 
     // Build context-aware prompt
     let contextPrompt = `You are a helpful educational assistant. A student is asking a follow-up question about their lecture materials.\n\n`;

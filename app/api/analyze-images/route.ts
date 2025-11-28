@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
+import { getModelById, type ModelTier } from '@/lib/models';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -12,7 +13,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { images } = body;
+    const { images, modelTier } = body;
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return NextResponse.json(
@@ -23,8 +24,10 @@ export async function POST(request: NextRequest) {
 
     console.log(`Analyzing ${images.length} images with Gemini Vision...`);
 
-    // Use Gemini 2.0 Flash Exp for multimodal (vision) capabilities
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    // Get the appropriate model based on user selection
+    const selectedModel = getModelById((modelTier as ModelTier) || 'default');
+    console.log('Using model:', selectedModel, 'for image analysis');
+    const model = genAI.getGenerativeModel({ model: selectedModel });
 
     const results = [];
 

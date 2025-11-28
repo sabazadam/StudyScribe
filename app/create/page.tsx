@@ -13,7 +13,9 @@ import CreateAnotherModal from '@/components/ui/CreateAnotherModal';
 import TranscriptModal from '@/components/ui/TranscriptModal';
 import StepIndicator from '@/components/ui/StepIndicator';
 import Tabs from '@/components/ui/Tabs';
+import ModelSelector from '@/components/ModelSelector';
 import { fileToBase64, extractSlideContent, analyzeImageContent, getLastExtractionErrors, clearExtractionErrors } from '@/lib/fileProcessing';
+import { type ModelTier } from '@/lib/models';
 
 interface MaterialFile {
   id: string;
@@ -67,6 +69,7 @@ export default function CreateMaterialsPage() {
   // Output states
   const [outputType, setOutputType] = useState('exam');
   const [customPrompt, setCustomPrompt] = useState('');
+  const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>('default');
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
   const [generatedTranscript, setGeneratedTranscript] = useState('');
@@ -339,7 +342,7 @@ export default function CreateMaterialsPage() {
         }));
 
         try {
-          const analyzedText = await analyzeImageContent(photoFiles);
+          const analyzedText = await analyzeImageContent(photoFiles, selectedModelTier);
           imageAnalysis = analyzedText || '';
 
           // Only show success if we got meaningful content
@@ -413,6 +416,7 @@ export default function CreateMaterialsPage() {
           materialType: outputType,
           customPrompt: outputType === 'custom' ? customPrompt : undefined,
           extractionErrors: extractionErrors.length > 0 ? extractionErrors : undefined,
+          modelTier: selectedModelTier,
         }),
       });
 
@@ -458,6 +462,233 @@ export default function CreateMaterialsPage() {
     } catch (err: any) {
       console.error('Processing error:', err);
       setError(err.message || 'An error occurred during processing');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Quiz generation flow - similar to handleGenerate but calls quiz API
+  const handleQuizGenerate = async () => {
+    // Validation
+    if (!audioFile && slideFiles.length === 0) {
+      setError('Please upload at least an audio file or slides');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError('');
+    setResult('');
+
+    try {
+      // Step 1: Transcription (if audio exists)
+      let transcript = '';
+      if (audioFile) {
+        setProcessingSteps(prev => ({
+          ...prev,
+          transcription: { status: 'loading', message: 'Transcribing audio...' }
+        }));
+
+        const formData = new FormData();
+        formData.append('file', audioFile);
+
+        const transcribeResponse = await fetch('/api/transcribe', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!transcribeResponse.ok) {
+          throw new Error('Transcription failed');
+        }
+
+        const transcribeData = await transcribeResponse.json();
+        transcript = transcribeData.transcript;
+
+        setProcessingSteps(prev => ({
+          ...prev,
+          transcription: { status: 'success', message: 'Transcription complete!' }
+        }));
+      } else {
+        setProcessingSteps(prev => ({
+          ...prev,
+          transcription: { status: 'skipped', message: 'No audio file provided' }
+        }));
+      }
+
+      // Step 2: Slide Extraction (if slides exist)
+      let slideText = '';
+      if (slideFiles.length > 0) {
+        setProcessingSteps(prev => ({
+          ...prev,
+          slideExtraction: { status: 'loading', message: 'Extracting slide content...' }
+        }));
+
+        try {
+          const extractedText = await extractSlideContent(slideFiles);
+          slideText = extractedText || '';
+
+          if (slideText && slideText.trim().length > 50) {
+            setProcessingSteps(prev => ({
+              ...prev,
+              slideExtraction: { status: 'success', message: 'Slides extracted!' }
+            }));
+          } else if (slideText && slideText.trim().length > 0) {
+            setProcessingSteps(prev => ({
+              ...prev,
+              slideExtraction: { status: 'error', message: 'Minimal content extracted - file may be image-based' }
+            }));
+          } else {
+            setProcessingSteps(prev => ({
+              ...prev,
+              slideExtraction: { status: 'error', message: 'No text extracted - file may be image-based or scanned' }
+            }));
+          }
+        } catch (err) {
+          setProcessingSteps(prev => ({
+            ...prev,
+            slideExtraction: { status: 'error', message: 'Slide extraction failed' }
+          }));
+        }
+      } else {
+        setProcessingSteps(prev => ({
+          ...prev,
+          slideExtraction: { status: 'skipped', message: 'No slides provided' }
+        }));
+      }
+
+      // Step 3: Image Analysis (if photos exist)
+      let imageAnalysis = '';
+      if (photoFiles.length > 0) {
+        setProcessingSteps(prev => ({
+          ...prev,
+          imageAnalysis: { status: 'loading', message: 'Analyzing images...' }
+        }));
+
+        try {
+          const analysis = await analyzeImageContent(photoFiles);
+          imageAnalysis = analysis || '';
+
+          setProcessingSteps(prev => ({
+            ...prev,
+            imageAnalysis: { status: 'success', message: 'Images analyzed!' }
+          }));
+        } catch (err) {
+          setProcessingSteps(prev => ({
+            ...prev,
+            imageAnalysis: { status: 'error', message: 'Image analysis failed' }
+          }));
+        }
+      } else {
+        setProcessingSteps(prev => ({
+          ...prev,
+          imageAnalysis: { status: 'skipped', message: 'No photos provided' }
+        }));
+      }
+
+      // Step 4: Generate Quiz with AI - Enhanced progress feedback
+      setProcessingSteps(prev => ({
+        ...prev,
+        materialGeneration: { status: 'loading', message: 'Analyzing your content...' }
+      }));
+
+      const content = `${transcript}\n\n${slideText}\n\n${imageAnalysis}`;
+
+      // Update message after content analysis
+      setTimeout(() => {
+        setProcessingSteps(prev => ({
+          ...prev,
+          materialGeneration: { status: 'loading', message: 'Creating intelligent quiz questions...' }
+        }));
+      }, 1000);
+
+      // Tip about the generation time
+      setTimeout(() => {
+        setProcessingSteps(prev => ({
+          ...prev,
+          materialGeneration: { status: 'loading', message: '⏱️ This may take 30-40 seconds for high-quality questions' }
+        }));
+      }, 3000);
+
+      // Encouraging message
+      setTimeout(() => {
+        setProcessingSteps(prev => ({
+          ...prev,
+          materialGeneration: { status: 'loading', message: '💡 Tip: AI-generated quizzes adapt to your content complexity' }
+        }));
+      }, 8000);
+
+      // Progress update
+      setTimeout(() => {
+        setProcessingSteps(prev => ({
+          ...prev,
+          materialGeneration: { status: 'loading', message: '🎯 Crafting questions that test deep understanding...' }
+        }));
+      }, 15000);
+
+      // Approaching completion
+      setTimeout(() => {
+        setProcessingSteps(prev => ({
+          ...prev,
+          materialGeneration: { status: 'loading', message: '✨ Almost there! Finalizing your quiz...' }
+        }));
+      }, 25000);
+
+      const generateResponse = await fetch('/api/quizzes/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content,
+          title: `Quiz: ${audioFile?.name || slideFiles[0]?.name || 'Lecture Quiz'}`,
+          questionCount: 10,
+          difficulty: 'medium',
+          modelTier: selectedModelTier,
+        }),
+      });
+
+      if (!generateResponse.ok) {
+        setProcessingSteps(prev => ({
+          ...prev,
+          materialGeneration: { status: 'error', message: 'Failed to generate quiz' }
+        }));
+        const errorData = await generateResponse.json();
+        throw new Error(errorData.error || 'Failed to generate quiz');
+      }
+
+      const generateData = await generateResponse.json();
+
+      setProcessingSteps(prev => ({
+        ...prev,
+        materialGeneration: { status: 'success', message: 'Quiz generated successfully!' }
+      }));
+
+      // Wait 1.5 seconds to show the success state
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Store quiz data in sessionStorage for results page
+      sessionStorage.setItem('generatedQuiz', JSON.stringify(generateData.quiz));
+      sessionStorage.setItem('studyMaterialType', 'quiz');
+      if (transcript) {
+        sessionStorage.setItem('studyMaterialTranscript', transcript);
+      }
+
+      // Cache extracted text for reuse
+      setCachedExtraction({
+        transcript,
+        slideText,
+        imageAnalysis
+      });
+
+      // Store raw extraction for regeneration
+      sessionStorage.setItem('rawExtraction', JSON.stringify({
+        transcript,
+        slideText,
+        imageAnalysis
+      }));
+
+      // Navigate to results page
+      router.push('/results');
+    } catch (err: any) {
+      console.error('Quiz generation error:', err);
+      setError(err.message || 'An error occurred during quiz generation');
     } finally {
       setIsProcessing(false);
     }
@@ -576,6 +807,13 @@ export default function CreateMaterialsPage() {
       return;
     }
 
+    // For quiz type, route to quiz generation instead of material generation
+    if (type === 'quiz') {
+      setCurrentStep(3);
+      handleQuizGenerate();
+      return;
+    }
+
     setCurrentStep(3);
     // Start processing
     handleGenerate();
@@ -609,7 +847,6 @@ export default function CreateMaterialsPage() {
     setIsProcessing(true);
     setError('');
     setResult('');
-    setShowResultsModal(false);
 
     // Show processing steps for cached data
     setProcessingSteps({
@@ -973,8 +1210,8 @@ export default function CreateMaterialsPage() {
 
           {/* Step 2: Material Type Selection */}
           {currentStep === 2 && (
-            <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-              <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+            <div className="bg-white dark:bg-card-dark rounded-2xl shadow-lg p-8 mb-8">
+              <h3 className="text-2xl font-bold text-gray-800 dark:text-text-dark mb-6 text-center">
                 What type of study material do you want to create?
               </h3>
               <ActionButtons
@@ -988,6 +1225,14 @@ export default function CreateMaterialsPage() {
                 disabled={isProcessing}
                 loading={isProcessing}
               />
+
+              {/* Model Selection */}
+              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <ModelSelector
+                  selectedTier={selectedModelTier}
+                  onSelectTier={setSelectedModelTier}
+                />
+              </div>
 
               {outputType === 'custom' && (
                 <div className="mt-6">

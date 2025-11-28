@@ -11,36 +11,41 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="glass dark:glass-dark border-b border-border-light dark:border-border-dark sticky top-0 z-50 shadow-sm backdrop-blur-lg" role="banner">
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-between">
           {/* Logo and Brand */}
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-2xl font-heading font-bold text-gradient-academic">
                 LectureHelper AI
-              </h2>
+              </h1>
             </Link>
-
           </div>
 
           {/* Actions */}
-          <div className="flex items-center gap-3">
-            <Link
-              href="/materials"
-              className="px-4 py-2 text-sm bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all shadow-sm flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined text-sm">upload</span>
-              For Instructors
-            </Link>
-            <Link
-              href="/hub"
-              className="px-4 py-2 text-sm bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-sm flex items-center gap-2"
-            >
-              <span className="material-symbols-outlined text-sm">folder</span>
-              Study Hub
-            </Link>
-          </div>
+          <nav aria-label="Main navigation">
+            <div className="flex gap-3">
+              <Link
+                href="/materials"
+                className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2 font-semibold"
+                aria-label="Upload course materials (for instructors)"
+              >
+                <span className="material-symbols-outlined text-sm" aria-hidden="true">upload</span>
+                <span className="hidden md:inline">Instructors: Upload Materials</span>
+                <span className="md:hidden">Upload</span>
+              </Link>
+              <Link
+                href="/hub"
+                className="px-4 py-2 bg-accent hover:bg-accent-dark text-midnight-blue rounded-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2 font-semibold"
+                aria-label="View your study hub"
+              >
+                <span className="material-symbols-outlined text-sm" aria-hidden="true">folder</span>
+                <span className="hidden md:inline">Study Hub</span>
+                <span className="md:hidden">Hub</span>
+              </Link>
+            </div>
+          </nav>
         </div>
       </div>
     </header>

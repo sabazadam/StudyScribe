@@ -83,7 +83,9 @@ export async function POST(request: NextRequest) {
       content,
       transcript,
       sources,
-      metadata
+      metadata,
+      rawExtraction,
+      linkedQuizzes
     } = body;
 
     // Validation
@@ -101,7 +103,9 @@ export async function POST(request: NextRequest) {
       content,
       transcript: transcript || '',
       sources: sources || { hasAudio: false, hasSlides: false, hasPhotos: false },
-      metadata: metadata || { wordCount: 0 }
+      metadata: metadata || { wordCount: 0 },
+      rawExtraction: rawExtraction || undefined,
+      linkedQuizzes: linkedQuizzes || undefined
     });
 
     return NextResponse.json({

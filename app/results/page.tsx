@@ -12,6 +12,8 @@ function ResultsContent() {
   const [content, setContent] = useState('');
   const [materialType, setMaterialType] = useState('');
   const [transcript, setTranscript] = useState('');
+  const [quiz, setQuiz] = useState<any>(null);
+  const [rawExtraction, setRawExtraction] = useState<any>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
@@ -26,25 +28,54 @@ function ResultsContent() {
     const typeParam = searchParams.get('type');
     const transcriptParam = searchParams.get('transcript');
 
-    if (contentParam) {
-      setContent(decodeURIComponent(contentParam));
-    } else {
-      // Fallback to sessionStorage
-      const storedContent = sessionStorage.getItem('studyMaterialContent');
-      if (storedContent) {
-        setContent(storedContent);
-      }
-    }
-
+    // Get material type first
+    let type = '';
     if (typeParam) {
-      setMaterialType(decodeURIComponent(typeParam));
+      type = decodeURIComponent(typeParam);
+      setMaterialType(type);
     } else {
       const storedType = sessionStorage.getItem('studyMaterialType');
       if (storedType) {
+        type = storedType;
         setMaterialType(storedType);
       }
     }
 
+    // Handle quiz type differently
+    if (type === 'quiz') {
+      const storedQuiz = sessionStorage.getItem('generatedQuiz');
+      if (storedQuiz) {
+        try {
+          const quizData = JSON.parse(storedQuiz);
+          setQuiz(quizData);
+        } catch (e) {
+          console.error('Failed to parse quiz data:', e);
+        }
+      }
+
+      // Load raw extraction for regeneration
+      const storedExtraction = sessionStorage.getItem('rawExtraction');
+      if (storedExtraction) {
+        try {
+          const extractionData = JSON.parse(storedExtraction);
+          setRawExtraction(extractionData);
+        } catch (e) {
+          console.error('Failed to parse extraction data:', e);
+        }
+      }
+    } else {
+      // Regular material flow
+      if (contentParam) {
+        setContent(decodeURIComponent(contentParam));
+      } else {
+        const storedContent = sessionStorage.getItem('studyMaterialContent');
+        if (storedContent) {
+          setContent(storedContent);
+        }
+      }
+    }
+
+    // Load transcript
     if (transcriptParam) {
       setTranscript(decodeURIComponent(transcriptParam));
     } else {
@@ -54,6 +85,70 @@ function ResultsContent() {
       }
     }
   }, [searchParams]);
+
+  // Auto-save quiz materials to Study Hub
+  useEffect(() => {
+    const autoSaveQuizMaterial = async () => {
+      // Only auto-save for quiz type and if not already saved
+      if (materialType !== 'quiz' || !quiz || !rawExtraction) return;
+
+      // Check if already saved to avoid duplicates
+      const alreadySaved = sessionStorage.getItem('quizMaterialAutoSaved');
+      if (alreadySaved === quiz.id) {
+        console.log('Quiz material already auto-saved');
+        return;
+      }
+
+      try {
+        console.log('Auto-saving quiz material to Study Hub...');
+
+        const typeLabels = {
+          'exam': 'Exam Prep Material',
+          'summary': 'Summary',
+          'quiz': 'Quiz',
+          'mock-exam': 'Mock Exam',
+          'explain': 'Detailed Explanation',
+          'custom': 'Custom Study Material'
+        };
+
+        const title = `${typeLabels[materialType] || 'Study Material'} - ${new Date().toLocaleDateString()}`;
+
+        const response = await fetch('/api/study-materials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            materialType,
+            content: `Quiz: ${quiz.title}`,
+            transcript: transcript || '',
+            rawExtraction,
+            linkedQuizzes: [quiz.id],
+            sources: {
+              hasAudio: !!transcript,
+              hasSlides: !!rawExtraction?.slideText,
+              hasPhotos: !!rawExtraction?.imageAnalysis
+            },
+            metadata: {
+              wordCount: transcript?.split(/\s+/).length || 0
+            }
+          })
+        });
+
+        if (response.ok) {
+          const savedData = await response.json();
+          console.log('Quiz material auto-saved successfully:', savedData);
+          // Mark as saved to avoid duplicates
+          sessionStorage.setItem('quizMaterialAutoSaved', quiz.id);
+        } else {
+          console.error('Failed to auto-save quiz material');
+        }
+      } catch (error) {
+        console.error('Error auto-saving quiz material:', error);
+      }
+    };
+
+    autoSaveQuizMaterial();
+  }, [quiz, materialType, rawExtraction, transcript]);
 
   // Scroll detection for toolbar hide/show
   useEffect(() => {
@@ -96,7 +191,8 @@ function ResultsContent() {
   }, [lastScrollY, scrollUpDistance]);
 
   const handleSaveToHub = async () => {
-    if (!content || isSaved) return;
+    // For quiz type, check quiz data; for regular materials, check content
+    if ((!content && !quiz) || isSaved) return;
 
     setIsSaving(true);
     setError('');
@@ -113,27 +209,64 @@ function ResultsContent() {
 
       const title = `${typeLabels[materialType] || 'Study Material'} - ${new Date().toLocaleDateString()}`;
 
-      const response = await fetch('/api/study-materials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          materialType,
-          content,
-          transcript,
-          sources: {
-            hasAudio: !!transcript,
-            hasSlides: false,
-            hasPhotos: false
-          },
-          metadata: {
-            wordCount: content.split(/\s+/).length
-          }
-        })
-      });
+      // For quiz type, save the raw extraction with quiz link
+      if (materialType === 'quiz' && quiz) {
+        console.log('Saving quiz material with quiz ID:', quiz.id);
+        console.log('Quiz object:', quiz);
 
-      if (!response.ok) {
-        throw new Error('Failed to save material');
+        const response = await fetch('/api/study-materials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            materialType,
+            content: `Quiz: ${quiz.title}`, // Placeholder content
+            transcript,
+            rawExtraction,
+            linkedQuizzes: [quiz.id],
+            sources: {
+              hasAudio: !!transcript,
+              hasSlides: !!rawExtraction?.slideText,
+              hasPhotos: !!rawExtraction?.imageAnalysis
+            },
+            metadata: {
+              wordCount: transcript?.split(/\s+/).length || 0
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Failed to save material:', errorData);
+          throw new Error('Failed to save material');
+        }
+
+        const savedData = await response.json();
+        console.log('Material saved successfully:', savedData);
+      } else {
+        // Regular material save
+        const response = await fetch('/api/study-materials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            materialType,
+            content,
+            transcript,
+            sources: {
+              hasAudio: !!transcript,
+              hasSlides: false,
+              hasPhotos: false
+            },
+            metadata: {
+              wordCount: content.split(/\s+/).length
+            }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save material');
+        }
       }
 
       setIsSaved(true);
@@ -142,6 +275,12 @@ function ResultsContent() {
       setError(err.message || 'Failed to save material to hub');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleStartQuiz = () => {
+    if (quiz) {
+      router.push(`/quiz/${quiz.id}`);
     }
   };
 
@@ -169,7 +308,8 @@ function ResultsContent() {
     router.push('/create');
   };
 
-  if (!content) {
+  // Check if we have content OR quiz
+  if (!content && !quiz) {
     return (
       <div className="min-h-screen bg-mesh-academic pattern-dots flex items-center justify-center">
         <div className="text-center">
@@ -217,13 +357,13 @@ function ResultsContent() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 pb-24">
-        <div className="w-full mx-auto px-2">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 max-w-7xl">
+        <div className="w-full">
           {/* Integrated Action Toolbar - Sticky with scroll behavior */}
           <div className={`sticky top-20 z-40 mb-6 transition-transform duration-300 ${
             isToolbarVisible ? 'translate-y-0' : '-translate-y-full'
           }`}>
-            <div className="glass border border-oxford-blue/20 rounded-xl p-4 shadow-md">
+            <div className="glass border border-oxford-blue/20 rounded-xl p-4 sm:p-6 shadow-md">
               {/* Header Row: Success Icon + Title + Metadata */}
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-oxford-blue/10">
                 <div className="flex items-center gap-3">
@@ -232,10 +372,12 @@ function ResultsContent() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <h2 className="font-heading font-bold text-oxford-blue text-lg leading-tight">
-                      Your Study Materials Are Ready!
+                      {materialType === 'quiz' ? 'Your Quiz Is Ready!' : 'Your Study Materials Are Ready!'}
                     </h2>
                     <p className="text-xs text-text-muted">
-                      Generated with AI • {content.split(/\s+/).length} words • {new Date().toLocaleDateString()}
+                      Generated with AI •
+                      {materialType === 'quiz' && quiz ? ` ${quiz.questions.length} questions` : ` ${content.split(/\s+/).length} words`} •
+                      {new Date().toLocaleDateString()}
                     </p>
                   </div>
                 </div>
@@ -258,6 +400,17 @@ function ResultsContent() {
 
               {/* Action Buttons Row */}
               <div className="flex items-center gap-2 flex-wrap">
+                {/* Quiz-specific: Start Quiz Now */}
+                {materialType === 'quiz' && quiz && (
+                  <button
+                    onClick={handleStartQuiz}
+                    className="btn-primary-sm bg-green-600 hover:bg-green-700"
+                  >
+                    <span className="material-symbols-outlined text-lg">play_arrow</span>
+                    <span>Start Quiz Now</span>
+                  </button>
+                )}
+
                 {/* Save to Hub */}
                 <button
                   onClick={handleSaveToHub}
@@ -270,16 +423,18 @@ function ResultsContent() {
                   <span>{isSaved ? 'Saved!' : 'Save to Hub'}</span>
                 </button>
 
-                {/* Download */}
-                <button
-                  onClick={handleDownload}
-                  className="btn-secondary-sm"
-                >
-                  <span className="material-symbols-outlined text-lg">download</span>
-                  <span>Download</span>
-                </button>
+                {/* Download - only for regular materials */}
+                {materialType !== 'quiz' && (
+                  <button
+                    onClick={handleDownload}
+                    className="btn-secondary-sm"
+                  >
+                    <span className="material-symbols-outlined text-lg">download</span>
+                    <span>Download</span>
+                  </button>
+                )}
 
-                {/* Create Another */}
+                {/* Create Another Material */}
                 <button
                   onClick={handleCreateAnother}
                   className="btn-secondary-sm"
@@ -308,9 +463,9 @@ function ResultsContent() {
             </div>
           </div>
 
-          {/* Content Area - Full Width with Centered Container */}
-          <div className="w-full flex justify-center">
-            <div className="card-elevated glass p-8 prose-optimized w-full">
+          {/* Content Area - Optimized Width and Spacing */}
+          <div className="w-full">
+            <div className="card-elevated glass p-6 sm:p-8 lg:p-10 prose-optimized">
             {/* Content Display */}
             {showTranscript && transcript ? (
               <div className="glass border border-oxford-blue/20 rounded-xl p-6 not-prose">
@@ -322,12 +477,59 @@ function ResultsContent() {
                   {transcript}
                 </div>
               </div>
+            ) : materialType === 'quiz' && quiz ? (
+              /* Quiz Preview */
+              <div className="glass border border-oxford-blue/20 rounded-xl p-6 not-prose">
+                <h3 className="text-2xl font-heading font-bold text-oxford-blue mb-4 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-green-600">quiz</span>
+                  {quiz.title}
+                </h3>
+                {quiz.description && (
+                  <p className="text-oxford-blue/70 mb-6">{quiz.description}</p>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <div className="text-3xl font-bold text-blue-600 mb-1">{quiz.questions.length}</div>
+                    <div className="text-sm text-blue-700">Questions</div>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                    <div className="text-3xl font-bold text-purple-600 mb-1">{quiz.difficulty || 'medium'}</div>
+                    <div className="text-sm text-purple-700">Difficulty</div>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                    <div className="text-3xl font-bold text-green-600 mb-1">Multiple Choice</div>
+                    <div className="text-sm text-green-700">Format</div>
+                  </div>
+                </div>
+
+                <h4 className="font-semibold text-oxford-blue mb-3">Question Preview:</h4>
+                <div className="bg-white rounded-lg p-4 border border-oxford-blue/20 mb-4">
+                  <p className="font-medium text-oxford-blue mb-3">{quiz.questions[0]?.question}</p>
+                  <div className="space-y-2">
+                    {quiz.questions[0]?.options.slice(0, 4).map((option: string, idx: number) => (
+                      <div key={idx} className="flex items-center gap-2 text-sm text-oxford-blue/70">
+                        <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold">
+                          {String.fromCharCode(65 + idx)}
+                        </span>
+                        <span>{option}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-sm text-oxford-blue/60 italic">
+                  Click "Start Quiz Now" above to begin taking the quiz!
+                </p>
+              </div>
             ) : (
-              <ChatMessage
-                content={content}
-                role="assistant"
-                timestamp={new Date().toISOString()}
-              />
+              <div className="prose prose-lg dark:prose-invert max-w-none">
+                <ChatMessage
+                  content={content}
+                  role="assistant"
+                  timestamp={new Date().toISOString()}
+                />
+              </div>
             )}
 
             {/* Feedback Widget */}

@@ -378,7 +378,7 @@ export async function extractSlideContent(files: File[]): Promise<string | null>
 /**
  * Analyze images using Gemini Vision
  */
-export async function analyzeImageContent(files: File[]): Promise<string | null> {
+export async function analyzeImageContent(files: File[], modelTier?: string): Promise<string | null> {
   if (files.length === 0) return null;
 
   // Convert files to base64 format
@@ -389,7 +389,7 @@ export async function analyzeImageContent(files: File[]): Promise<string | null>
     () => fetch('/api/analyze-images', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ images }),
+      body: JSON.stringify({ images, modelTier }),
     }),
     2, // max 2 retries
     'Image analysis'

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
 import MaterialModal from '@/components/ui/MaterialModal';
+import GenerateQuizModal from '@/components/quiz/GenerateQuizModal';
 import HubToolbar, { ViewMode, SortOption } from '@/components/ui/HubToolbar';
 import { SavedStudyMaterial } from '@/lib/studyMaterialStorage';
 
@@ -19,6 +20,8 @@ export default function StudyHub() {
   // Modal state
   const [selectedMaterial, setSelectedMaterial] = useState<SavedStudyMaterial | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [showQuizModal, setShowQuizModal] = useState(false);
+  const [quizMaterialId, setQuizMaterialId] = useState<string>('');
 
   // Load materials on mount
   useEffect(() => {
@@ -105,6 +108,11 @@ export default function StudyHub() {
     setMaterials(prev => prev.filter(m => m.id !== id));
     // Reload to ensure consistency
     await loadMaterials();
+  };
+
+  const handleGenerateQuiz = (materialId: string) => {
+    setQuizMaterialId(materialId);
+    setShowQuizModal(true);
   };
 
   const getTypeIcon = (type: string) => {
@@ -294,6 +302,14 @@ export default function StudyHub() {
         onClose={handleCloseModal}
         material={selectedMaterial}
         onDelete={handleDeleteMaterial}
+        onGenerateQuiz={handleGenerateQuiz}
+      />
+
+      {/* Generate Quiz Modal */}
+      <GenerateQuizModal
+        isOpen={showQuizModal}
+        onClose={() => setShowQuizModal(false)}
+        preselectedMaterialId={quizMaterialId}
       />
     </Layout>
   );
