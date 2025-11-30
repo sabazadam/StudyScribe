@@ -70,6 +70,7 @@ export default function CreateMaterialsPage() {
   const [outputType, setOutputType] = useState('exam');
   const [customPrompt, setCustomPrompt] = useState('');
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>('default');
+  const [maxImages, setMaxImages] = useState<number>(2); // Default to 2 images
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
   const [generatedTranscript, setGeneratedTranscript] = useState('');
@@ -417,6 +418,7 @@ export default function CreateMaterialsPage() {
           customPrompt: outputType === 'custom' ? customPrompt : undefined,
           extractionErrors: extractionErrors.length > 0 ? extractionErrors : undefined,
           modelTier: selectedModelTier,
+          maxImages, // User-selected image limit (0-2)
         }),
       });
 
@@ -887,6 +889,7 @@ export default function CreateMaterialsPage() {
           imageAnalysis: cachedExtraction?.imageAnalysis || '',
           materialType: type,
           customPrompt: type === 'custom' ? promptToUse : undefined,
+          maxImages, // User-selected image limit (0-2)
         }),
       });
 
@@ -1232,6 +1235,59 @@ export default function CreateMaterialsPage() {
                   selectedTier={selectedModelTier}
                   onSelectTier={setSelectedModelTier}
                 />
+              </div>
+
+              {/* Image Limit Selection */}
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-start gap-3 mb-4">
+                  <span className="material-symbols-outlined text-primary text-2xl">image</span>
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-800 dark:text-text-dark mb-1">
+                      AI-Generated Diagrams
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Choose how many educational diagrams to generate (powered by Google Imagen 3)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  {[0, 1, 2].map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => setMaxImages(num)}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        maxImages === num
+                          ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
+                      }`}
+                    >
+                      <div className="text-center">
+                        <div className={`text-2xl font-bold ${
+                          maxImages === num ? 'text-primary' : 'text-gray-600 dark:text-gray-400'
+                        }`}>
+                          {num}
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                          {num === 0 && 'No images'}
+                          {num === 1 && '1 image'}
+                          {num === 2 && '2 images'}
+                        </div>
+                        {num > 0 && (
+                          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            ~${(num * 0.04).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <p className="text-xs text-blue-700 dark:text-blue-400">
+                    💡 Gemini will suggest relevant diagrams for complex concepts. You can approve or skip each one.
+                  </p>
+                </div>
               </div>
 
               {outputType === 'custom' && (

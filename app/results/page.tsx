@@ -357,7 +357,7 @@ function ResultsContent() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 max-w-7xl">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 py-8 pb-24 max-w-[1400px]">
         <div className="w-full">
           {/* Integrated Action Toolbar - Sticky with scroll behavior */}
           <div className={`sticky top-20 z-40 mb-6 transition-transform duration-300 ${
@@ -519,11 +519,11 @@ function ResultsContent() {
                 </div>
 
                 <p className="text-sm text-oxford-blue/60 italic">
-                  Click "Start Quiz Now" above to begin taking the quiz!
+                  Click &ldquo;Start Quiz Now&rdquo; above to begin taking the quiz!
                 </p>
               </div>
             ) : (
-              <div className="prose prose-lg dark:prose-invert max-w-none">
+              <div className="prose prose-xl dark:prose-invert max-w-none">
                 <ChatMessage
                   content={content}
                   role="assistant"
