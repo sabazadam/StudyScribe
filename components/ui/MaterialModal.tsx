@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import EnhancedMarkdown from './EnhancedMarkdown';
-import { SavedStudyMaterial } from '@/lib/studyMaterialStorage';
+import { SavedStudyMaterial } from '@/lib/types/materialCompat';
 import { QuizListItem } from '@/lib/quizTypes';
 
 interface MaterialModalProps {

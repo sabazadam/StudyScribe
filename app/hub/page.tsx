@@ -5,9 +5,15 @@ import { Layout } from '@/components/layout/Layout';
 import MaterialModal from '@/components/ui/MaterialModal';
 import GenerateQuizModal from '@/components/quiz/GenerateQuizModal';
 import HubToolbar, { ViewMode, SortOption } from '@/components/ui/HubToolbar';
-import { SavedStudyMaterial } from '@/lib/studyMaterialStorage';
+import FolderTree from '@/components/folders/FolderTree';
+import FolderBreadcrumb from '@/components/folders/FolderBreadcrumb';
+import { SavedStudyMaterial, materialsToSavedMaterials } from '@/lib/types/materialCompat';
+import { Material, Folder } from '@/lib/types/firestore';
+import { authenticatedFetch } from '@/lib/api/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function StudyHub() {
+  const { user, loading: authLoading } = useAuth();
   const [materials, setMaterials] = useState<SavedStudyMaterial[]>([]);
   const [filteredMaterials, setFilteredMaterials] = useState<SavedStudyMaterial[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,26 +29,59 @@ export default function StudyHub() {
   const [showQuizModal, setShowQuizModal] = useState(false);
   const [quizMaterialId, setQuizMaterialId] = useState<string>('');
 
-  // Load materials on mount
-  useEffect(() => {
-    loadMaterials();
-  }, []);
+  // Folder state
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [currentFolder, setCurrentFolder] = useState<Folder | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Apply filters when materials, search, filter, or sort changes
+  // Load materials on mount - wait for auth to be ready
+  useEffect(() => {
+    // Only load materials when auth is ready and user is logged in
+    if (!authLoading && user) {
+      loadMaterials();
+    } else if (!authLoading && !user) {
+      // Auth finished loading but no user - show error
+      setLoading(false);
+      setError('Please sign in to view your materials');
+    }
+  }, [authLoading, user]);
+
+  // Apply filters when materials, search, filter, sort, or folder changes
   useEffect(() => {
     applyFilters();
-  }, [materials, searchQuery, filter, sortBy]);
+  }, [materials, searchQuery, filter, sortBy, selectedFolderId]);
+
+  // Fetch current folder details when selectedFolderId changes
+  useEffect(() => {
+    if (selectedFolderId) {
+      fetchCurrentFolder();
+    } else {
+      setCurrentFolder(null);
+    }
+  }, [selectedFolderId]);
 
   const loadMaterials = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const response = await fetch('/api/study-materials');
+      const response = await authenticatedFetch('/api/study-materials');
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Please sign in to view your materials');
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
 
       if (data.success) {
-        setMaterials(data.materials);
+        // Convert Firestore Materials to legacy SavedStudyMaterial format
+        const firestoreMaterials: Material[] = data.data.materials;
+        const savedMaterials = materialsToSavedMaterials(firestoreMaterials);
+        setMaterials(savedMaterials);
       } else {
         setError(data.error || 'Failed to load materials');
       }
@@ -54,8 +93,32 @@ export default function StudyHub() {
     }
   };
 
+  const fetchCurrentFolder = async () => {
+    if (!selectedFolderId) return;
+
+    try {
+      const response = await authenticatedFetch(`/api/folders/${selectedFolderId}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentFolder(data.folder || null);
+      } else {
+        console.error('Failed to fetch folder details');
+        setCurrentFolder(null);
+      }
+    } catch (err) {
+      console.error('Error fetching folder:', err);
+      setCurrentFolder(null);
+    }
+  };
+
   const applyFilters = () => {
     let filtered = [...materials];
+
+    // Apply folder filter
+    if (selectedFolderId) {
+      filtered = filtered.filter(m => m.folderId === selectedFolderId);
+    }
 
     // Apply search
     if (searchQuery.trim()) {
@@ -153,13 +216,63 @@ export default function StudyHub() {
 
   return (
     <Layout>
-      <div className="p-4 sm:p-6 lg:p-8 bg-mesh-academic dark:bg-mesh-academic-dark min-h-screen">
-        <div className="container mx-auto max-w-7xl">
-          {/* Header */}
-          <div className="mb-8 animate-slide-up">
-            <h2 className="text-4xl font-heading font-bold text-gradient-academic mb-2">My Study Hub</h2>
-            <p className="text-text-muted dark:text-text-dark-muted">Manage and organize your AI-generated study materials</p>
+      <div className="flex bg-mesh-academic dark:bg-mesh-academic-dark min-h-screen">
+        {/* Sidebar */}
+        <aside
+          className={`${
+            sidebarOpen ? 'w-80' : 'w-0'
+          } transition-all duration-300 overflow-hidden border-r border-border-light dark:border-border-dark bg-white dark:bg-card-dark`}
+        >
+          <div className="p-6 h-full overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-heading font-bold text-oxford-blue dark:text-text-dark">
+                Folders
+              </h3>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+            <FolderTree
+              selectedFolderId={selectedFolderId}
+              onSelectFolder={setSelectedFolderId}
+              onFoldersChange={loadMaterials}
+            />
           </div>
+        </aside>
+
+        {/* Main Content */}
+        <div className="flex-1 overflow-hidden">
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="container mx-auto max-w-7xl">
+              {/* Header */}
+              <div className="mb-8 animate-slide-up">
+                <div className="flex items-center gap-4 mb-4">
+                  {!sidebarOpen && (
+                    <button
+                      onClick={() => setSidebarOpen(true)}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                      title="Show folders"
+                    >
+                      <span className="material-symbols-outlined text-lg">menu</span>
+                    </button>
+                  )}
+                  <div className="flex-1">
+                    <h2 className="text-4xl font-heading font-bold text-gradient-academic mb-2">My Study Hub</h2>
+                    <p className="text-text-muted dark:text-text-dark-muted">Manage and organize your AI-generated study materials</p>
+                  </div>
+                </div>
+
+                {/* Breadcrumb */}
+                <div className="mt-4">
+                  <FolderBreadcrumb
+                    currentFolder={currentFolder}
+                    onNavigate={setSelectedFolderId}
+                  />
+                </div>
+              </div>
 
           {/* Toolbar */}
           <HubToolbar
@@ -293,6 +406,8 @@ export default function StudyHub() {
               )}
             </div>
           )}
+            </div>
+          </div>
         </div>
       </div>
 

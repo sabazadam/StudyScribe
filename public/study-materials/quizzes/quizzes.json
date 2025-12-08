@@ -713,7 +713,92 @@
       "id": "1764264954869-xdm2aeqig",
       "createdAt": "2025-11-27T17:35:54.869Z",
       "updatedAt": "2025-11-27T17:35:54.869Z"
+    },
+    {
+      "title": "Quiz: Exam Prep - 11/30/2025",
+      "description": "Auto-generated hard quiz with 5 questions",
+      "questions": [
+        {
+          "id": "q-1764589886482-0",
+          "question": "Let A be a 10x7 matrix representing a linear transformation T from R^7 to R^10. Suppose the homogeneous equation Ax = 0 has at least one nontrivial solution. Which of the following statements must be true?",
+          "options": [
+            "The columns of A form a basis for R^10.",
+            "The rank of A is exactly 7.",
+            "The dimension of the column space of A is at most 6.",
+            "For any vector b in R^10, the equation Ax = b has a unique solution."
+          ],
+          "correctAnswer": 2,
+          "explanation": "The premise that Ax=0 has a nontrivial solution means the null space of A is not just the zero vector, so dim(Nul A) >= 1. The matrix A is 10x7, so the number of columns, n, is 7. According to the Rank Theorem, rank(A) + dim(Nul A) = n. Substituting the values, we get rank(A) + dim(Nul A) = 7. Since dim(Nul A) is at least 1, the maximum possible value for rank(A) is 7 - 1 = 6. Therefore, the dimension of the column space of A (which is the rank) is at most 6. Option A is incorrect because there are only 7 column vectors, which cannot span the 10-dimensional space R^10. Option B is incorrect because a rank of 7 would imply dim(Nul A) = 0, contradicting the given information. Option D is incorrect because the rank (at most 6) is less than the number of rows (10), meaning Col A is not all of R^10, so Ax=b is not consistent for every b. Furthermore, a nontrivial null space ensures that if a solution exists, it is never unique.",
+          "difficulty": "hard",
+          "order": 0
+        },
+        {
+          "id": "q-1764589886482-1",
+          "question": "Let V be a vector space with a known dimension of 4. A researcher is analyzing a set S = {v1, v2, v3, v4} of vectors from V. Which of the following scenarios allows the researcher to conclude that S is a basis for V with the LEAST amount of additional verification?",
+          "options": [
+            "The researcher verifies that S spans V and then must also verify that S is a linearly independent set.",
+            "The researcher verifies that S is a linearly independent set and then must also verify that S spans V.",
+            "The researcher verifies that S spans V and needs no further checks.",
+            "The researcher verifies that the set {v1, v2, v3} is linearly independent."
+          ],
+          "correctAnswer": 2,
+          "explanation": "This question tests the application of the Basis Theorem. The theorem states that for a vector space V of dimension p, any set of exactly p vectors that is linearly independent is automatically a basis, AND any set of exactly p vectors that spans V is also automatically a basis. Since V has dimension 4 and the set S has exactly 4 vectors, the researcher only needs to verify ONE of the two conditions for a basis. Verifying that S spans V is sufficient to conclude it is a basis without checking for linear independence. Therefore, option C is correct. Options A and B are incorrect because they suggest both conditions must be checked, which negates the shortcut provided by the Basis Theorem. Option D is insufficient; proving a subset of S is linearly independent provides no conclusion about S itself being a basis for the entire space V.",
+          "difficulty": "hard",
+          "order": 1
+        },
+        {
+          "id": "q-1764589886482-2",
+          "question": "Consider the matrix A and its reduced row echelon form R. A = [[1, 2, 3, 4], [2, 4, 7, 9], [3, 6, 10, 13]], R = [[1, 2, 0, 1], [0, 0, 1, 1], [0, 0, 0, 0]]. Which of the following sets forms a valid basis for the column space of A (Col A)?",
+          "options": [
+            "{ [1, 2, 0, 1]^T, [0, 0, 1, 1]^T }",
+            "{ [1, 0, 0]^T, [0, 1, 0]^T }",
+            "{ [1, 2, 3]^T, [3, 7, 10]^T }",
+            "{ [1, 2, 3, 4]^T, [2, 4, 7, 9]^T, [3, 6, 10, 13]^T }"
+          ],
+          "correctAnswer": 2,
+          "explanation": "The procedure for finding a basis for the column space (Col A) is to identify the pivot columns in an echelon form of A and then use the corresponding columns from the *original matrix A*. In the reduced row echelon form R, the pivot positions (leading 1s) are in columns 1 and 3. Therefore, a basis for Col A is formed by the first and third columns of the original matrix A. This corresponds to the set {[1, 2, 3]^T, [3, 7, 10]^T}. Option A is incorrect because it lists the non-zero rows of R, which form a basis for the *row space* of A. Option B is incorrect as it lists standard basis vectors which are not in Col A. Option D lists all columns of A, which is the original spanning set for Col A but is not a basis because the set is linearly dependent (as shown by the existence of a non-pivot column).",
+          "difficulty": "hard",
+          "order": 2
+        },
+        {
+          "id": "q-1764589886482-3",
+          "question": "Let B = {b1, b2, b3, b4} be a basis for a vector space V. Consider two new sets: S1 = {b1, b2, b3} and S2 = {b1, b2, b3, b4, v}, where v is another vector from V. Which statement accurately describes the properties of S1 and S2?",
+          "options": [
+            "S1 spans V, and S2 is linearly independent.",
+            "S1 is linearly independent, and S2 is linearly dependent.",
+            "S1 is linearly dependent, and S2 spans V.",
+            "S1 spans V, and S2 spans V."
+          ],
+          "correctAnswer": 1,
+          "explanation": "This question tests the dual characterization of a basis as a 'minimal spanning set' and a 'maximal linearly independent set'. Because B is a basis, it is linearly independent. Any subset of a linearly independent set is also linearly independent, so S1 = {b1, b2, b3} must be linearly independent. However, because a basis is a minimal spanning set, removing any vector (like b4) means the resulting set S1 can no longer span V. For S2, because B is a basis, it is a maximal linearly independent set. Adding any other vector v from the space V to B will make the new set S2 linearly dependent. This is because v can be written as a linear combination of the vectors in B, which creates a linear dependence relation. Therefore, S1 is linearly independent and S2 is linearly dependent.",
+          "difficulty": "hard",
+          "order": 3
+        },
+        {
+          "id": "q-1764589886482-4",
+          "question": "An engineer is analyzing a system modeled by the equation Ax = b, where A is a 5x5 matrix. The engineer discovers that for a specific non-zero vector b0, the system Ax = b0 has no solution. What can be definitively concluded about the set of column vectors of A?",
+          "options": [
+            "The columns of A form a basis for R^5.",
+            "The columns of A are linearly dependent.",
+            "The dimension of the null space of A is exactly 1.",
+            "The columns of A are linearly independent, but do not span R^5."
+          ],
+          "correctAnswer": 1,
+          "explanation": "This question connects the solvability of Ax=b to the properties of the matrix A, which are summarized in the Invertible Matrix Theorem (IMT). The fact that Ax=b0 has no solution for some b0 means that the column space of A does not span the entire target space R^5. For an n x n matrix, the statement 'Col A = R^n' is equivalent to many other conditions, including 'the columns of A are linearly independent' and 'A is invertible'. Since 'Col A = R^5' is false, all other equivalent statements in the IMT must also be false. The negation of 'the columns of A are linearly independent' is 'the columns of A are linearly dependent'. Therefore, the columns must be linearly dependent. Option A is incorrect because if the columns formed a basis, they would span R^5, and a solution would exist for every b. Option C is not definitive; we only know dim(Nul A) > 0 because the columns are dependent (by the Rank Theorem, rank(A) < 5, so dim(Nul A) > 0), but it could be greater than 1. Option D is a contradiction; for a square matrix, linear independence is equivalent to spanning the space.",
+          "difficulty": "hard",
+          "order": 4
+        }
+      ],
+      "materialId": "7bc69d590f441b838c19af351197c38f",
+      "status": "published",
+      "tags": [
+        "auto-generated",
+        "hard"
+      ],
+      "id": "1764589886482-5jzeb5agw",
+      "createdAt": "2025-12-01T11:51:26.482Z",
+      "updatedAt": "2025-12-01T11:51:26.482Z"
     }
   ],
-  "lastUpdated": "2025-11-27T17:35:54.872Z"
+  "lastUpdated": "2025-12-01T11:51:26.484Z"
 }

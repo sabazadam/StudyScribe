@@ -6,6 +6,8 @@ import { promisify } from 'util';
 import path from 'path';
 import os from 'os';
 import { Blob } from 'buffer';
+import { verifyUserAuth } from '@/lib/middleware/authMiddleware';
+import { withTimeout, TimeoutError } from '@/lib/utils/timeout';
 
 // Configure fal.ai with API key
 fal.config({
@@ -74,6 +76,15 @@ async function convertToWAV(inputBuffer: Buffer, originalName: string): Promise<
 }
 
 export async function POST(request: NextRequest) {
+  // Verify authentication
+  const user = await verifyUserAuth(request);
+  if (!user) {
+    return NextResponse.json(
+      { error: 'Unauthorized. Please sign in to transcribe audio.' },
+      { status: 401 }
+    );
+  }
+
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -106,22 +117,41 @@ export async function POST(request: NextRequest) {
     const fileUrl = await fal.storage.upload(audioBlob as any);
     console.log('File uploaded to fal.ai storage:', fileUrl);
 
-    // Call Whisper model for transcription
-    const result = await fal.subscribe("fal-ai/whisper", {
-      input: {
-        audio_url: fileUrl,
-        task: "transcribe",
-        language: "en", // Can be made dynamic based on user preference
-        chunk_level: "segment",
-        version: "3"
-      },
-      logs: true,
-      onQueueUpdate: (update) => {
-        if (update.status === "IN_PROGRESS") {
-          console.log('Transcription in progress...');
-        }
-      },
-    });
+    // Call Whisper model for transcription with 60-second timeout
+    let result;
+    try {
+      result = await withTimeout(
+        fal.subscribe("fal-ai/whisper", {
+          input: {
+            audio_url: fileUrl,
+            task: "transcribe",
+            language: "en", // Can be made dynamic based on user preference
+            chunk_level: "segment",
+            version: "3"
+          },
+          logs: true,
+          onQueueUpdate: (update) => {
+            if (update.status === "IN_PROGRESS") {
+              console.log('Transcription in progress...');
+            }
+          },
+        }),
+        60000,
+        'Audio Transcription'
+      );
+    } catch (error) {
+      if (error instanceof TimeoutError) {
+        console.error('[Transcribe] Request timed out after 60 seconds');
+        return NextResponse.json(
+          {
+            error: 'Transcription timed out',
+            message: 'The audio file took too long to transcribe. Please try with a shorter audio file.',
+          },
+          { status: 408 }
+        );
+      }
+      throw error; // Re-throw non-timeout errors
+    }
 
     console.log('Transcription completed:', result);
 

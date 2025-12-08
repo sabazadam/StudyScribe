@@ -4,7 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getQuizAttempts, getQuizProgress } from '@/lib/quizStorage';
+import { getQuizAttempts } from '@/lib/firestore/quizRepository';
+import { verifyUserAuth } from '@/lib/middleware/authMiddleware';
+// TODO: Implement getQuizProgress in quizRepository
 
 /**
  * GET /api/quizzes/[id]/attempts
@@ -17,24 +19,28 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
-    const searchParams = request.nextUrl.searchParams;
-    const limit = searchParams.get('limit');
-    const includeProgress = searchParams.get('includeProgress') !== 'false';
-
-    // Get attempts
-    let attempts = getQuizAttempts(id);
-
-    // Apply limit if specified
-    if (limit) {
-      const limitNum = parseInt(limit, 10);
-      if (!isNaN(limitNum) && limitNum > 0) {
-        attempts = attempts.slice(0, limitNum);
-      }
+    // Verify authentication
+    const user = await verifyUserAuth(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
+    const { id } = params;
+    const searchParams = request.nextUrl.searchParams;
+    const limitParam = searchParams.get('limit');
+    const includeProgress = searchParams.get('includeProgress') !== 'false';
+
+    const limitNum = limitParam ? parseInt(limitParam, 10) : 20;
+
+    // Get attempts
+    const attempts = await getQuizAttempts(id, user.userId, limitNum);
+
     // Get progress statistics
-    const progress = includeProgress ? getQuizProgress(id) : null;
+    // TODO: Implement getQuizProgress
+    const progress = null; // includeProgress ? getQuizProgress(id) : null;
 
     return NextResponse.json({
       attempts,

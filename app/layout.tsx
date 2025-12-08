@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Space_Grotesk, Manrope, Crimson_Pro, JetBrains_Mono } from 'next/font/google'
+import * as Sentry from '@sentry/nextjs'
 import './globals.css'
 
 // Headings - geometric, distinctive, professional
@@ -31,10 +32,17 @@ const jetbrainsMono = JetBrains_Mono({
   display: 'swap',
 })
 
-export const metadata: Metadata = {
-  title: 'StudyScribe - AI-Powered Study Assistant',
-  description: 'Transform lectures and notes into structured study materials with AI',
+export function generateMetadata(): Metadata {
+  return {
+    title: 'CrammingAI - Smart Studying, Not Hard Studying',
+    description: 'AI-powered study material generation platform for university students and self-learners. Transform lectures into study guides, quizzes, and mock exams.',
+    other: {
+      ...Sentry.getTraceData()
+    }
+  };
 }
+
+import { Providers } from './providers';
 
 export default function RootLayout({
   children,
@@ -58,7 +66,9 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        {children}
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   )

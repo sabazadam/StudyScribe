@@ -1,21 +1,47 @@
+/**
+ * Study Materials API Routes
+ * GET: Retrieve user's study materials
+ * POST: Create new study material (usually called by generate-materials)
+ * PATCH: Update existing material
+ * DELETE: Delete material
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyUserAuth } from '@/lib/middleware/authMiddleware';
 import {
-  saveMaterial,
-  getAllMaterials,
+  getUserMaterials,
   getMaterialById,
+  getUserMaterialsByType,
   updateMaterial,
   deleteMaterial,
   searchMaterials,
-  getMaterialsByType,
-  initializeStorage,
-  type SavedStudyMaterial
-} from '@/lib/studyMaterialStorage';
+  saveMaterial,
+} from '@/lib/firestore/materialRepository';
+import { MaterialType } from '@/lib/types/firestore';
+import {
+  ErrorCode,
+  createAuthError,
+  createNotFoundError,
+  createMissingFieldError,
+  createValidationError,
+  createInternalError,
+  ApiError,
+} from '@/lib/api/errorHandler';
 
-// Initialize storage on module load
-initializeStorage().catch(console.error);
-
-// GET - Retrieve study materials
+/**
+ * GET /api/study-materials
+ * Query params:
+ * - id: Get specific material by ID
+ * - type: Filter by material type
+ * - search: Search materials by title or content
+ */
 export async function GET(request: NextRequest) {
+  // Verify authentication
+  const user = await verifyUserAuth(request);
+  if (!user) {
+    return createAuthError('Please sign in to view your study materials.');
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
@@ -24,169 +50,220 @@ export async function GET(request: NextRequest) {
 
     // Get specific material by ID
     if (id) {
-      const material = await getMaterialById(id);
+      const material = await getMaterialById(id, user.userId);
 
       if (!material) {
-        return NextResponse.json(
-          { success: false, error: 'Material not found' },
-          { status: 404 }
-        );
+        return createNotFoundError('Study material');
       }
 
       return NextResponse.json({
         success: true,
-        material
+        data: { material },
+        timestamp: new Date().toISOString(),
       });
     }
 
     // Search materials
     if (search) {
-      const materials = await searchMaterials(search);
+      const materials = await searchMaterials(user.userId, search);
       return NextResponse.json({
         success: true,
-        materials
+        data: { materials, count: materials.length },
+        timestamp: new Date().toISOString(),
       });
     }
 
     // Get materials by type
     if (type) {
-      const materials = await getMaterialsByType(type as SavedStudyMaterial['materialType']);
+      const materials = await getUserMaterialsByType(
+        user.userId,
+        type as MaterialType,
+        50
+      );
       return NextResponse.json({
         success: true,
-        materials
+        data: { materials, count: materials.length },
+        timestamp: new Date().toISOString(),
       });
     }
 
     // Get all materials (default)
-    const materials = await getAllMaterials();
+    const materials = await getUserMaterials(user.userId, 50);
     return NextResponse.json({
       success: true,
-      materials
+      data: { materials, count: materials.length },
+      timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    console.error('Error retrieving study materials:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to retrieve materials' },
-      { status: 500 }
-    );
+
+  } catch (error: any) {
+    console.error('[API Error] study-materials GET:', error);
+    return createInternalError(error, 'GET /api/study-materials');
   }
 }
 
-// POST - Save new study material
+/**
+ * POST /api/study-materials
+ * Save new study material
+ * Note: Usually materials are created via /api/generate-materials
+ * This endpoint allows manual creation or import
+ */
 export async function POST(request: NextRequest) {
+  // Verify authentication
+  const user = await verifyUserAuth(request);
+  if (!user) {
+    return createAuthError('Please sign in to create study materials.');
+  }
+
   try {
     const body = await request.json();
 
+    // Import validation schema and helpers
+    const { createMaterialSchema, validateRequestSafe, sanitizeInput, sanitizeStringArray } = await import('@/lib/validation');
+
+    // Validate request body
+    const validation = validateRequestSafe(createMaterialSchema, body);
+
+    if (!validation.success) {
+      console.error('[CreateMaterial] Validation failed:', validation.error);
+      return createValidationError(
+        'request',
+        validation.error || 'Invalid material data',
+        validation.errors?.join(', ')
+      );
+    }
+
+    // Use validated data
     const {
       title,
       materialType,
       content,
-      transcript,
       sources,
-      metadata,
-      rawExtraction,
-      linkedQuizzes
-    } = body;
+      imageData,
+      tags,
+      folderId
+    } = validation.data!;
 
-    // Validation
-    if (!title || !materialType || !content) {
-      return NextResponse.json(
-        { success: false, error: 'Missing required fields: title, materialType, content' },
-        { status: 400 }
-      );
+    // Sanitize inputs
+    const sanitizedTitle = sanitizeInput(title);
+    const sanitizedTags = tags ? sanitizeStringArray(tags) : [];
+
+    // Get folder path if folderId is provided
+    let folderPath: string[] = [];
+    if (folderId) {
+      const { getFolderById } = await import('@/lib/firestore/folderRepository');
+      const folder = await getFolderById(folderId, user.userId);
+      if (folder) {
+        folderPath = folder.path;
+      }
     }
 
-    // Save material
-    const savedMaterial = await saveMaterial({
-      title,
+    // Save material with sanitized data
+    const materialId = await saveMaterial(user.userId, {
+      title: sanitizedTitle,
       materialType,
-      content,
-      transcript: transcript || '',
-      sources: sources || { hasAudio: false, hasSlides: false, hasPhotos: false },
-      metadata: metadata || { wordCount: 0 },
-      rawExtraction: rawExtraction || undefined,
-      linkedQuizzes: linkedQuizzes || undefined
+      content, // Content can be large, skip sanitization (it's generated by our own AI)
+      sources: sources || {},
+      imageData: imageData || undefined,
+      tags: sanitizedTags,
+      folderId: folderId || null,
+      folderPath
     });
 
     return NextResponse.json({
       success: true,
-      material: savedMaterial
-    });
-  } catch (error) {
-    console.error('Error saving study material:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to save material' },
-      { status: 500 }
-    );
+      data: { materialId },
+      message: 'Material saved successfully',
+      timestamp: new Date().toISOString(),
+    }, { status: 201 });
+
+  } catch (error: any) {
+    console.error('[API Error] study-materials POST:', error);
+    return createInternalError(error, 'POST /api/study-materials');
   }
 }
 
-// PATCH - Update existing material
+/**
+ * PATCH /api/study-materials
+ * Update existing material
+ */
 export async function PATCH(request: NextRequest) {
+  // Verify authentication
+  const user = await verifyUserAuth(request);
+  if (!user) {
+    return createAuthError('Please sign in to update study materials.');
+  }
+
   try {
     const body = await request.json();
-    const { id, ...updates } = body;
 
-    if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'Material ID is required' },
-        { status: 400 }
+    // Import validation schema and helpers
+    const { updateMaterialSchema, validateRequestSafe, sanitizeInput, sanitizeStringArray } = await import('@/lib/validation');
+
+    // Validate request body
+    const validation = validateRequestSafe(updateMaterialSchema, body);
+
+    if (!validation.success) {
+      console.error('[UpdateMaterial] Validation failed:', validation.error);
+      return createValidationError(
+        'request',
+        validation.error || 'Invalid update data',
+        validation.errors?.join(', ')
       );
     }
 
-    const updatedMaterial = await updateMaterial(id, updates);
+    // Use validated data
+    const { id, ...updates } = validation.data!;
 
-    if (!updatedMaterial) {
-      return NextResponse.json(
-        { success: false, error: 'Material not found' },
-        { status: 404 }
-      );
-    }
+    // Sanitize updates
+    const allowedUpdates: any = {};
+    if (updates.title !== undefined) allowedUpdates.title = sanitizeInput(updates.title);
+    if (updates.content !== undefined) allowedUpdates.content = updates.content; // Skip sanitization for large content
+    if (updates.tags !== undefined) allowedUpdates.tags = sanitizeStringArray(updates.tags);
+    if (updates.imageData !== undefined) allowedUpdates.imageData = updates.imageData;
+
+    await updateMaterial(id, user.userId, allowedUpdates);
 
     return NextResponse.json({
       success: true,
-      material: updatedMaterial
+      message: 'Material updated successfully',
+      timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    console.error('Error updating study material:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to update material' },
-      { status: 500 }
-    );
+
+  } catch (error: any) {
+    console.error('[API Error] study-materials PATCH:', error);
+    return createInternalError(error, 'PATCH /api/study-materials');
   }
 }
 
-// DELETE - Remove material
+/**
+ * DELETE /api/study-materials?id={materialId}
+ * Remove material
+ */
 export async function DELETE(request: NextRequest) {
+  // Verify authentication
+  const user = await verifyUserAuth(request);
+  if (!user) {
+    return createAuthError('Please sign in to delete study materials.');
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
     if (!id) {
-      return NextResponse.json(
-        { success: false, error: 'Material ID is required' },
-        { status: 400 }
-      );
+      return createMissingFieldError(['id']);
     }
 
-    const deleted = await deleteMaterial(id);
-
-    if (!deleted) {
-      return NextResponse.json(
-        { success: false, error: 'Material not found' },
-        { status: 404 }
-      );
-    }
+    await deleteMaterial(id, user.userId);
 
     return NextResponse.json({
       success: true,
-      message: 'Material deleted successfully'
+      message: 'Material deleted successfully',
+      timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    console.error('Error deleting study material:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to delete material' },
-      { status: 500 }
-    );
+
+  } catch (error: any) {
+    console.error('[API Error] study-materials DELETE:', error);
+    return createInternalError(error, 'DELETE /api/study-materials');
   }
 }

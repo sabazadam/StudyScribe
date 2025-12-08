@@ -15,6 +15,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import AuthGuard from '@/components/auth/AuthGuard'
 import ChatMessage from '@/components/ui/ChatMessage'
 
 interface ComparisonResult {
@@ -30,6 +31,7 @@ export default function TestingPage() {
   const router = useRouter()
   const [sampleContent, setSampleContent] = useState('')
   const [materialType, setMaterialType] = useState<string>('summary')
+  const [maxImages, setMaxImages] = useState<number>(0)
   const [oldResult, setOldResult] = useState<ComparisonResult | null>(null)
   const [newResult, setNewResult] = useState<ComparisonResult | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -93,6 +95,7 @@ Neural networks power many modern AI applications including image recognition, n
           imageAnalysis: '',
           materialType,
           modelTier: 'default',
+          maxImages: maxImages.toString(),
         }),
       })
 
@@ -118,6 +121,7 @@ Neural networks power many modern AI applications including image recognition, n
   }
 
   return (
+    <AuthGuard>
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-indigo-50 dark:from-midnight-blue dark:via-midnight-blue dark:to-deep-purple p-6">
       {/* Warning Banner */}
       <div className="max-w-7xl mx-auto mb-6">
@@ -174,6 +178,25 @@ Neural networks power many modern AI applications including image recognition, n
               <option value="mock-exam">Mock Exam</option>
               <option value="explain">Explanation</option>
             </select>
+          </div>
+
+          {/* Max Images Selector */}
+          <div className="mb-4">
+            <label className="block text-sm font-semibold mb-2">
+              Number of Images to Generate (0-2)
+            </label>
+            <select
+              value={maxImages}
+              onChange={(e) => setMaxImages(parseInt(e.target.value))}
+              className="w-full px-4 py-2 border border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary bg-white dark:bg-midnight-blue text-primary-text dark:text-primary-text-dark"
+            >
+              <option value="0">0 - No images (faster testing)</option>
+              <option value="1">1 - Single image</option>
+              <option value="2">2 - Maximum images</option>
+            </select>
+            <p className="text-xs text-secondary-text dark:text-secondary-text-dark mt-1">
+              Images are generated automatically where {`{{IMAGE:...}}`} markers appear in the content
+            </p>
           </div>
 
           {/* Sample Content */}
@@ -353,5 +376,6 @@ Neural networks power many modern AI applications including image recognition, n
         </div>
       </div>
     </div>
+    </AuthGuard>
   )
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SavedStudyMaterial } from '@/lib/studyMaterialStorage';
+import { SavedStudyMaterial, materialsToSavedMaterials } from '@/lib/types/materialCompat';
+import { Material } from '@/lib/types/firestore';
 import { useRouter } from 'next/navigation';
 
 interface GenerateQuizModalProps {
@@ -45,7 +46,15 @@ export default function GenerateQuizModal({
     try {
       const response = await fetch('/api/study-materials');
       const data = await response.json();
-      setMaterials(data.materials || []);
+
+      if (data.success && data.materials) {
+        // Convert Firestore Materials to legacy SavedStudyMaterial format
+        const firestoreMaterials: Material[] = data.materials;
+        const savedMaterials = materialsToSavedMaterials(firestoreMaterials);
+        setMaterials(savedMaterials);
+      } else {
+        setMaterials([]);
+      }
     } catch (error) {
       console.error('Error fetching materials:', error);
       setError('Failed to load study materials');

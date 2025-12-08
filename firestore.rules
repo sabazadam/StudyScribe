@@ -1,0 +1,227 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===========================================================================
+    // HELPER FUNCTIONS
+    // ===========================================================================
+
+    /**
+     * Check if user is authenticated
+     */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    /**
+     * Check if user owns the resource
+     */
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    /**
+     * Validate that required fields exist and are correct types
+     */
+    function hasRequiredMaterialFields() {
+      return request.resource.data.keys().hasAll(['userId', 'content', 'materialType', 'sources', 'createdAt', 'updatedAt', 'title'])
+        && request.resource.data.userId is string
+        && request.resource.data.content is string
+        && request.resource.data.materialType is string
+        && request.resource.data.title is string;
+    }
+
+    function hasRequiredQuizFields() {
+      return request.resource.data.keys().hasAll(['userId', 'quiz', 'sources', 'createdAt', 'metadata'])
+        && request.resource.data.userId is string
+        && request.resource.data.quiz is map
+        && request.resource.data.quiz.title is string
+        && request.resource.data.quiz.questions is list;
+    }
+
+    /**
+     * Validate string length limits to prevent abuse
+     */
+    function withinSizeLimit() {
+      return request.resource.data.content.size() < 1000000; // 1MB text limit
+    }
+
+    // ===========================================================================
+    // MATERIALS COLLECTION
+    // Collection: materials/{materialId}
+    // ===========================================================================
+
+    match /materials/{materialId} {
+      // Anyone authenticated can create materials (owned by themselves)
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredMaterialFields()
+        && withinSizeLimit();
+
+      // Users can only read their own materials
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+
+      // Users can only update their own materials
+      // Prevent changing userId or timestamps
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && hasRequiredMaterialFields()
+        && withinSizeLimit();
+
+      // Users can only delete their own materials
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // ===========================================================================
+    // QUIZZES COLLECTION
+    // Collection: quizzes/{quizId}
+    // ===========================================================================
+
+    match /quizzes/{quizId} {
+      // Anyone authenticated can create quizzes (owned by themselves)
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredQuizFields();
+
+      // Users can only read their own quizzes
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+
+      // Users can only update their own quizzes
+      // Prevent changing userId or timestamps
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && hasRequiredQuizFields();
+
+      // Users can only delete their own quizzes
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // ===========================================================================
+    // QUIZ ATTEMPTS COLLECTION
+    // Collection: quiz-attempts/{attemptId}
+    // ===========================================================================
+
+    match /quiz-attempts/{attemptId} {
+      // Anyone authenticated can create quiz attempts (owned by themselves)
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.keys().hasAll(['userId', 'quizId', 'answers', 'score', 'totalPoints', 'completedAt', 'timeSpent']);
+
+      // Users can only read their own quiz attempts
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+
+      // Quiz attempts are immutable - no updates allowed
+      allow update: if false;
+
+      // Users can delete their own quiz attempts
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // ===========================================================================
+    // USAGE TRACKING COLLECTION
+    // Collection: usage/{userId}/daily/{date}
+    // ===========================================================================
+
+    match /usage/{userId}/daily/{date} {
+      // Users can only read their own usage data
+      allow read: if isOwner(userId);
+
+      // Only server (via Admin SDK) can write usage data
+      // Client-side writes are prevented to avoid quota manipulation
+      allow create, update, delete: if false;
+    }
+
+    // ===========================================================================
+    // COST TRACKING COLLECTION
+    // Collection: costs/{userId}/records/{recordId}
+    // ===========================================================================
+
+    match /costs/{userId}/records/{recordId} {
+      // Users can read their own cost records
+      allow read: if isOwner(userId);
+
+      // Only server (via Admin SDK) can write cost data
+      allow create, update, delete: if false;
+    }
+
+    // ===========================================================================
+    // FOLDERS COLLECTION
+    // Collection: folders/{folderId}
+    // ===========================================================================
+
+    match /folders/{folderId} {
+      /**
+       * Validate required folder fields
+       */
+      function hasRequiredFolderFields() {
+        return request.resource.data.keys().hasAll(['userId', 'name', 'parentFolderId', 'path', 'createdAt', 'updatedAt'])
+          && request.resource.data.userId is string
+          && request.resource.data.name is string
+          && request.resource.data.path is list
+          && (request.resource.data.parentFolderId == null || request.resource.data.parentFolderId is string);
+      }
+
+      /**
+       * Validate folder name length
+       */
+      function validFolderName() {
+        return request.resource.data.name.size() > 0
+          && request.resource.data.name.size() <= 100;
+      }
+
+      // Anyone authenticated can create folders (owned by themselves)
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredFolderFields()
+        && validFolderName();
+
+      // Users can only read their own folders
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+
+      // Users can only update their own folders
+      // Prevent changing userId or createdAt
+      allow update: if isOwner(resource.data.userId)
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && hasRequiredFolderFields()
+        && validFolderName();
+
+      // Users can only delete their own folders
+      allow delete: if isOwner(resource.data.userId);
+    }
+
+    // ===========================================================================
+    // USER PROFILES COLLECTION (if you add this in future)
+    // Collection: users/{userId}
+    // ===========================================================================
+
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isOwner(userId);
+
+      // Users can create their own profile (on signup)
+      allow create: if isOwner(userId)
+        && request.resource.data.userId == request.auth.uid;
+
+      // Users can update their own profile
+      // Prevent changing userId
+      allow update: if isOwner(userId)
+        && request.resource.data.userId == resource.data.userId;
+
+      // Prevent profile deletion (require account deletion flow)
+      allow delete: if false;
+    }
+
+    // ===========================================================================
+    // DENY ALL OTHER ACCESS
+    // Any collection not explicitly allowed above is denied
+    // ===========================================================================
+  }
+}

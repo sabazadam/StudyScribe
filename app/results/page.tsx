@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ChatMessage from '@/components/ui/ChatMessage';
 import FeedbackWidget from '@/components/ui/FeedbackWidget';
+import { authenticatedPost } from '@/lib/api/client';
+import UserMenu from '@/components/auth/UserMenu';
 
 function ResultsContent() {
   const searchParams = useSearchParams();
@@ -113,25 +115,21 @@ function ResultsContent() {
 
         const title = `${typeLabels[materialType] || 'Study Material'} - ${new Date().toLocaleDateString()}`;
 
-        const response = await fetch('/api/study-materials', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title,
-            materialType,
-            content: `Quiz: ${quiz.title}`,
-            transcript: transcript || '',
-            rawExtraction,
-            linkedQuizzes: [quiz.id],
-            sources: {
-              hasAudio: !!transcript,
-              hasSlides: !!rawExtraction?.slideText,
-              hasPhotos: !!rawExtraction?.imageAnalysis
-            },
-            metadata: {
-              wordCount: transcript?.split(/\s+/).length || 0
-            }
-          })
+        const response = await authenticatedPost('/api/study-materials', {
+          title,
+          materialType,
+          content: `Quiz: ${quiz.title}`,
+          transcript: transcript || '',
+          rawExtraction,
+          linkedQuizzes: [quiz.id],
+          sources: {
+            hasAudio: !!transcript,
+            hasSlides: !!rawExtraction?.slideText,
+            hasPhotos: !!rawExtraction?.imageAnalysis
+          },
+          metadata: {
+            wordCount: transcript?.split(/\s+/).length || 0
+          }
         });
 
         if (response.ok) {
@@ -214,25 +212,21 @@ function ResultsContent() {
         console.log('Saving quiz material with quiz ID:', quiz.id);
         console.log('Quiz object:', quiz);
 
-        const response = await fetch('/api/study-materials', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title,
-            materialType,
-            content: `Quiz: ${quiz.title}`, // Placeholder content
-            transcript,
-            rawExtraction,
-            linkedQuizzes: [quiz.id],
-            sources: {
-              hasAudio: !!transcript,
-              hasSlides: !!rawExtraction?.slideText,
-              hasPhotos: !!rawExtraction?.imageAnalysis
-            },
-            metadata: {
-              wordCount: transcript?.split(/\s+/).length || 0
-            }
-          })
+        const response = await authenticatedPost('/api/study-materials', {
+          title,
+          materialType,
+          content: `Quiz: ${quiz.title}`, // Placeholder content
+          transcript,
+          rawExtraction,
+          linkedQuizzes: [quiz.id],
+          sources: {
+            hasAudio: !!transcript,
+            hasSlides: !!rawExtraction?.slideText,
+            hasPhotos: !!rawExtraction?.imageAnalysis
+          },
+          metadata: {
+            wordCount: transcript?.split(/\s+/).length || 0
+          }
         });
 
         if (!response.ok) {
@@ -245,23 +239,19 @@ function ResultsContent() {
         console.log('Material saved successfully:', savedData);
       } else {
         // Regular material save
-        const response = await fetch('/api/study-materials', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title,
-            materialType,
-            content,
-            transcript,
-            sources: {
-              hasAudio: !!transcript,
-              hasSlides: false,
-              hasPhotos: false
-            },
-            metadata: {
-              wordCount: content.split(/\s+/).length
-            }
-          })
+        const response = await authenticatedPost('/api/study-materials', {
+          title,
+          materialType,
+          content,
+          transcript,
+          sources: {
+            hasAudio: !!transcript,
+            hasSlides: false,
+            hasPhotos: false
+          },
+          metadata: {
+            wordCount: content.split(/\s+/).length
+          }
         });
 
         if (!response.ok) {
@@ -332,11 +322,11 @@ function ResultsContent() {
           <div className="flex items-center justify-between">
             <Link href="/">
               <h1 className="text-2xl font-heading font-bold text-gradient-academic cursor-pointer hover:opacity-80 transition-opacity">
-                LectureHelper AI
+                CrammingAI
               </h1>
             </Link>
             <nav>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-3">
                 <Link
                   href="/create"
                   className="px-4 py-2 bg-oxford-blue hover:bg-oxford-blue/90 text-white rounded-lg transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-medium"
@@ -351,13 +341,16 @@ function ResultsContent() {
                   <span className="material-symbols-outlined text-sm">folder</span>
                   <span className="hidden md:inline">Study Hub</span>
                 </Link>
+
+                {/* User Menu */}
+                <UserMenu />
               </div>
             </nav>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 py-8 pb-24 max-w-[1400px]">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-16 xl:px-24 py-8 pb-24 max-w-7xl">
         <div className="w-full">
           {/* Integrated Action Toolbar - Sticky with scroll behavior */}
           <div className={`sticky top-20 z-40 mb-6 transition-transform duration-300 ${
@@ -465,10 +458,10 @@ function ResultsContent() {
 
           {/* Content Area - Optimized Width and Spacing */}
           <div className="w-full">
-            <div className="card-elevated glass p-6 sm:p-8 lg:p-10 prose-optimized">
+            <div className="card-elevated glass p-6 sm:p-8 lg:p-10 xl:p-12">
             {/* Content Display */}
             {showTranscript && transcript ? (
-              <div className="glass border border-oxford-blue/20 rounded-xl p-6 not-prose">
+              <div className="glass border border-oxford-blue/20 rounded-xl p-6">
                 <h3 className="text-lg font-heading font-bold text-oxford-blue mb-4 flex items-center gap-2">
                   <span className="material-symbols-outlined text-cerulean">article</span>
                   Lecture Transcript
@@ -523,7 +516,17 @@ function ResultsContent() {
                 </p>
               </div>
             ) : (
-              <div className="prose prose-xl dark:prose-invert max-w-none">
+              <div className="prose prose-lg dark:prose-invert max-w-none
+                prose-headings:font-heading prose-headings:text-oxford-blue dark:prose-headings:text-text-dark
+                prose-p:text-oxford-blue/90 dark:prose-p:text-text-dark/90 prose-p:leading-relaxed
+                prose-strong:text-oxford-blue dark:prose-strong:text-text-dark prose-strong:font-semibold
+                prose-ul:text-oxford-blue/90 dark:prose-ul:text-text-dark/90
+                prose-ol:text-oxford-blue/90 dark:prose-ol:text-text-dark/90
+                prose-li:my-1.5
+                prose-a:text-cerulean dark:prose-a:text-cerulean prose-a:no-underline hover:prose-a:underline
+                prose-code:text-oxford-blue dark:prose-code:text-text-dark prose-code:bg-oxford-blue/5 dark:prose-code:bg-gray-800
+                prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
+                prose-pre:bg-oxford-blue/5 dark:prose-pre:bg-gray-800 prose-pre:border prose-pre:border-oxford-blue/10">
                 <ChatMessage
                   content={content}
                   role="assistant"

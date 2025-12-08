@@ -1,78 +1,58 @@
 /**
  * Quiz CRUD API Routes
- * GET: List all quizzes with optional filters
+ * GET: List user's quizzes with optional filters
  * POST: Create new quiz
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyUserAuth } from '@/lib/middleware/authMiddleware';
 import {
-  getAllQuizzes,
-  getQuizzesByMaterialId,
-  searchQuizzes,
-  createQuiz,
-  getQuizListItems,
-} from '@/lib/quizStorage';
-import { Quiz } from '@/lib/quizTypes';
+  saveQuiz,
+  getUserQuizzes,
+  getQuizById,
+  deleteQuiz,
+} from '@/lib/firestore/quizRepository';
+import { QuizQuestion, MaterialSources } from '@/lib/types/firestore';
 
 /**
  * GET /api/quizzes
  * Query params:
- * - materialId: Filter by material ID
- * - search: Search query
- * - status: Filter by status
- * - summary: Return summary view (for list pages)
+ * - id: Get specific quiz by ID
  */
 export async function GET(request: NextRequest) {
+  // Verify authentication
+  const user = await verifyUserAuth(request);
+  if (!user) {
+    return NextResponse.json(
+      { error: 'Unauthorized. Please sign in to view quizzes.' },
+      { status: 401 }
+    );
+  }
+
   try {
     const searchParams = request.nextUrl.searchParams;
-    const materialId = searchParams.get('materialId');
-    const searchQuery = searchParams.get('search');
-    const status = searchParams.get('status');
-    const summary = searchParams.get('summary') === 'true';
+    const quizId = searchParams.get('id');
 
-    // Return summary view for list pages
-    if (summary) {
-      let items = getQuizListItems();
-
-      // Apply filters
-      if (materialId) {
-        items = items.filter(item => item.materialId === materialId);
-      }
-      if (status) {
-        items = items.filter(item => item.status === status);
-      }
-      if (searchQuery) {
-        const lowerQuery = searchQuery.toLowerCase();
-        items = items.filter(item =>
-          item.title.toLowerCase().includes(lowerQuery) ||
-          item.description?.toLowerCase().includes(lowerQuery)
+    // Get specific quiz
+    if (quizId) {
+      const quiz = await getQuizById(quizId, user.userId);
+      if (!quiz) {
+        return NextResponse.json(
+          { error: 'Quiz not found or unauthorized' },
+          { status: 404 }
         );
       }
-
-      return NextResponse.json({ quizzes: items, count: items.length });
+      return NextResponse.json({ quiz });
     }
 
-    // Full quiz data
-    let quizzes: Quiz[];
-
-    if (searchQuery) {
-      quizzes = searchQuizzes(searchQuery);
-    } else if (materialId) {
-      quizzes = getQuizzesByMaterialId(materialId);
-    } else {
-      quizzes = getAllQuizzes();
-    }
-
-    // Apply status filter
-    if (status) {
-      quizzes = quizzes.filter(q => q.status === status);
-    }
-
+    // Get all user quizzes
+    const quizzes = await getUserQuizzes(user.userId, 50);
     return NextResponse.json({ quizzes, count: quizzes.length });
-  } catch (error) {
+
+  } catch (error: any) {
     console.error('Error fetching quizzes:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch quizzes' },
+      { error: 'Failed to fetch quizzes', details: error.message },
       { status: 500 }
     );
   }
@@ -83,83 +63,188 @@ export async function GET(request: NextRequest) {
  * Create new quiz
  */
 export async function POST(request: NextRequest) {
+  // Verify authentication
+  const user = await verifyUserAuth(request);
+  if (!user) {
+    return NextResponse.json(
+      { error: 'Unauthorized. Please sign in to create quizzes.' },
+      { status: 401 }
+    );
+  }
+
+  // Import atomic quota service
+  const { reserveQuota, rollbackReservation, QuotaReservationError } = await import('@/lib/firestore/atomicQuotaService');
+  const { getEstimatedCost } = await import('@/lib/firestore/costRepository');
+
+  let reservation = null;
+
   try {
     const body = await request.json();
 
-    // Validate required fields
-    if (!body.title || !body.questions || !Array.isArray(body.questions)) {
+    // Import validation schema and helpers
+    const { createQuizSchema, validateRequestSafe, sanitizeInput, sanitizeStringArray } = await import('@/lib/validation');
+
+    // ========================================================================
+    // ATOMIC QUOTA RESERVATION - BEFORE PROCESSING
+    // ========================================================================
+    // Reserve quota atomically BEFORE doing any work
+    // Quizzes use the 'materials' cost endpoint (quiz generation is similar cost)
+    const estimatedCost = getEstimatedCost('generate-materials', 'gemini_flash');
+
+    try {
+      reservation = await reserveQuota(
+        user.userId,
+        'quizzes',
+        'generate-materials',
+        estimatedCost,
+        1 // Reserve 1 quiz slot
+      );
+      console.log(`[CreateQuiz] Quota reserved successfully for user ${user.userId}, reservation: ${reservation.reservationId}`);
+    } catch (quotaError: any) {
+      if (quotaError instanceof QuotaReservationError) {
+        console.log(`[CreateQuiz] Quota reservation failed for user ${user.userId}:`, quotaError.message);
+        return NextResponse.json(
+          {
+            error: quotaError.message,
+            reason: quotaError.reason,
+            details: quotaError.details,
+          },
+          { status: 429 }
+        );
+      }
+      throw quotaError;
+    }
+    // ========================================================================
+
+    // Validate request body
+    const validation = validateRequestSafe(createQuizSchema, body);
+
+    if (!validation.success) {
+      console.error('[CreateQuiz] Validation failed:', validation.error);
       return NextResponse.json(
-        { error: 'Missing required fields: title, questions' },
+        {
+          error: 'Invalid quiz data',
+          details: validation.error,
+          validationErrors: validation.errors,
+        },
         { status: 400 }
       );
     }
 
-    // Validate questions
-    if (body.questions.length === 0) {
-      return NextResponse.json(
-        { error: 'Quiz must have at least one question' },
-        { status: 400 }
-      );
-    }
+    // Use validated data
+    const validatedData = validation.data!;
 
-    // Validate each question
-    for (const question of body.questions) {
-      if (!question.question || !question.options || !Array.isArray(question.options)) {
-        return NextResponse.json(
-          { error: 'Invalid question format' },
-          { status: 400 }
-        );
-      }
+    // Sanitize title and description
+    const sanitizedTitle = sanitizeInput(validatedData.title);
+    const sanitizedDescription = validatedData.description ? sanitizeInput(validatedData.description) : '';
 
-      if (question.options.length < 2) {
-        return NextResponse.json(
-          { error: 'Each question must have at least 2 options' },
-          { status: 400 }
-        );
-      }
-
-      if (
-        question.correctAnswer === undefined ||
-        question.correctAnswer < 0 ||
-        question.correctAnswer >= question.options.length
-      ) {
-        return NextResponse.json(
-          { error: 'Invalid correct answer index' },
-          { status: 400 }
-        );
-      }
-
-      if (!question.explanation) {
-        return NextResponse.json(
-          { error: 'Each question must have an explanation' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Add order to questions
-    const questionsWithOrder = body.questions.map((q: any, index: number) => ({
-      ...q,
+    // Sanitize and structure questions (already validated by schema)
+    const questionsWithOrder: QuizQuestion[] = validatedData.questions.map((q, index: number) => ({
       id: q.id || `q-${Date.now()}-${index}`,
-      order: index,
+      question: sanitizeInput(q.question),
+      options: q.options.map(opt => sanitizeInput(opt)),
+      correctAnswer: q.correctAnswer,
+      explanation: sanitizeInput(q.explanation),
+      points: q.points || 1,
     }));
 
-    const newQuiz = createQuiz({
-      title: body.title,
-      description: body.description,
-      questions: questionsWithOrder,
-      materialId: body.materialId,
-      status: body.status || 'published',
-      timeLimit: body.timeLimit,
-      passingScore: body.passingScore,
-      tags: body.tags || [],
+    // Calculate metadata
+    const totalQuestions = questionsWithOrder.length;
+    const totalPoints = questionsWithOrder.reduce((sum, q) => sum + q.points, 0);
+
+    // Prepare sources (if provided, already validated)
+    const sources: MaterialSources = {
+      transcript: validatedData.sources?.transcript,
+      slideText: validatedData.sources?.slideText,
+      imageAnalysis: validatedData.sources?.imageAnalysis,
+    };
+
+    // Save quiz to Firestore
+    const quizId = await saveQuiz(user.userId, {
+      quiz: {
+        title: sanitizedTitle,
+        description: sanitizedDescription,
+        timeLimit: validatedData.timeLimit,
+        questions: questionsWithOrder,
+      },
+      sources,
+      metadata: {
+        totalQuestions,
+        totalPoints,
+        difficulty: validatedData.difficulty,
+      },
     });
 
-    return NextResponse.json({ quiz: newQuiz }, { status: 201 });
-  } catch (error) {
+    console.log('Quiz created with ID:', quizId);
+
+    // Quota already reserved atomically - no post-operation tracking needed
+
+    return NextResponse.json({
+      success: true,
+      quizId,
+      message: 'Quiz created successfully'
+    }, { status: 201 });
+
+  } catch (error: any) {
     console.error('Error creating quiz:', error);
+
+    // ========================================================================
+    // ROLLBACK QUOTA RESERVATION ON FAILURE
+    // ========================================================================
+    if (reservation) {
+      console.log(`[CreateQuiz] Rolling back quota reservation ${reservation.reservationId} for user ${user.userId}`);
+      try {
+        await rollbackReservation(reservation);
+        console.log(`[CreateQuiz] Rollback successful`);
+      } catch (rollbackError) {
+        console.error(`[CreateQuiz] Rollback failed:`, rollbackError);
+      }
+    }
+    // ========================================================================
+
     return NextResponse.json(
-      { error: 'Failed to create quiz' },
+      { error: 'Failed to create quiz', details: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * DELETE /api/quizzes?id={quizId}
+ * Delete a quiz
+ */
+export async function DELETE(request: NextRequest) {
+  // Verify authentication
+  const user = await verifyUserAuth(request);
+  if (!user) {
+    return NextResponse.json(
+      { error: 'Unauthorized. Please sign in to delete quizzes.' },
+      { status: 401 }
+    );
+  }
+
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const quizId = searchParams.get('id');
+
+    if (!quizId) {
+      return NextResponse.json(
+        { error: 'Quiz ID is required' },
+        { status: 400 }
+      );
+    }
+
+    await deleteQuiz(quizId, user.userId);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Quiz deleted successfully'
+    });
+
+  } catch (error: any) {
+    console.error('Error deleting quiz:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete quiz', details: error.message },
       { status: 500 }
     );
   }

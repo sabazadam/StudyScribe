@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import AuthGuard from '@/components/auth/AuthGuard';
 import FileUploader from '@/components/ui/FileUploader';
 import SlideUploader from '@/components/ui/SlideUploader';
 import ImageUploader from '@/components/ui/ImageUploader';
@@ -14,8 +15,13 @@ import TranscriptModal from '@/components/ui/TranscriptModal';
 import StepIndicator from '@/components/ui/StepIndicator';
 import Tabs from '@/components/ui/Tabs';
 import ModelSelector from '@/components/ModelSelector';
+import FolderPicker from '@/components/folders/FolderPicker';
 import { fileToBase64, extractSlideContent, analyzeImageContent, getLastExtractionErrors, clearExtractionErrors } from '@/lib/fileProcessing';
 import { type ModelTier } from '@/lib/models';
+import { setSessionItem, clearSession } from '@/lib/storage';
+import type { GenerateMaterialsResponse, GenerateQuizResponse, ExtractSlidesResponse, TranscribeAudioResponse } from '@/types/api';
+import { authenticatedFormPost, authenticatedPost } from '@/lib/api/client';
+import UserMenu from '@/components/auth/UserMenu';
 
 interface MaterialFile {
   id: string;
@@ -70,12 +76,13 @@ export default function CreateMaterialsPage() {
   const [outputType, setOutputType] = useState('exam');
   const [customPrompt, setCustomPrompt] = useState('');
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>('default');
-  const [maxImages, setMaxImages] = useState<number>(2); // Default to 2 images
+  const [maxImages, setMaxImages] = useState<number>(0); // Default to 0 images (user can enable if needed)
   const [result, setResult] = useState('');
   const [error, setError] = useState('');
   const [generatedTranscript, setGeneratedTranscript] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   // Multi-step flow states
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
@@ -88,6 +95,33 @@ export default function CreateMaterialsPage() {
   // Modal states
   const [showCreateAnother, setShowCreateAnother] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
+
+  // Check for transcript from transcribe page
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get('from') === 'transcript') {
+      const transcript = sessionStorage.getItem('transcriptContent');
+      const source = sessionStorage.getItem('transcriptSource');
+
+      if (transcript) {
+        // Set the transcript and move to step 2
+        setGeneratedTranscript(transcript);
+        setCachedExtraction({
+          transcript,
+          slideText: '',
+          imageAnalysis: '',
+        });
+        setCurrentStep(2);
+
+        // Clear from sessionStorage
+        sessionStorage.removeItem('transcriptContent');
+        sessionStorage.removeItem('transcriptSource');
+
+        // Show a success message
+        console.log(`Loaded transcript from: ${source || 'audio file'}`);
+      }
+    }
+  }, []);
 
   // Load materials data
   useEffect(() => {
@@ -269,10 +303,7 @@ export default function CreateMaterialsPage() {
         const formData = new FormData();
         formData.append('file', audioFile);
 
-        const transcribeResponse = await fetch('/api/transcribe', {
-          method: 'POST',
-          body: formData,
-        });
+        const transcribeResponse = await authenticatedFormPost('/api/transcribe', formData);
 
         if (!transcribeResponse.ok) {
           throw new Error('Transcription failed');
@@ -407,19 +438,15 @@ export default function CreateMaterialsPage() {
       // Get extraction errors to send to API for better error context
       const extractionErrors = getLastExtractionErrors();
 
-      const generateResponse = await fetch('/api/generate-materials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript,
-          slideText,
-          imageAnalysis,
-          materialType: outputType,
-          customPrompt: outputType === 'custom' ? customPrompt : undefined,
-          extractionErrors: extractionErrors.length > 0 ? extractionErrors : undefined,
-          modelTier: selectedModelTier,
-          maxImages, // User-selected image limit (0-2)
-        }),
+      const generateResponse = await authenticatedPost('/api/generate-materials', {
+        transcript,
+        slideText,
+        imageAnalysis,
+        materialType: outputType,
+        customPrompt: outputType === 'custom' ? customPrompt : undefined,
+        extractionErrors: extractionErrors.length > 0 ? extractionErrors : undefined,
+        modelTier: selectedModelTier,
+        maxImages, // User-selected image limit (0-2)
       });
 
       // Clear extraction errors after sending to API
@@ -434,7 +461,7 @@ export default function CreateMaterialsPage() {
         throw new Error(errorData.error || 'Failed to generate materials');
       }
 
-      const generateData = await generateResponse.json();
+      const generateData = await generateResponse.json() as GenerateMaterialsResponse;
 
       // Show success state
       setProcessingSteps(prev => ({
@@ -446,10 +473,10 @@ export default function CreateMaterialsPage() {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Store data in sessionStorage for results page
-      sessionStorage.setItem('studyMaterialContent', generateData.content);
-      sessionStorage.setItem('studyMaterialType', outputType);
+      setSessionItem('studyMaterialContent', generateData.content);
+      setSessionItem('studyMaterialType', outputType);
       if (transcript) {
-        sessionStorage.setItem('studyMaterialTranscript', transcript);
+        setSessionItem('studyMaterialTranscript', transcript);
       }
 
       // Cache extracted text for reuse
@@ -493,10 +520,7 @@ export default function CreateMaterialsPage() {
         const formData = new FormData();
         formData.append('file', audioFile);
 
-        const transcribeResponse = await fetch('/api/transcribe', {
-          method: 'POST',
-          body: formData,
-        });
+        const transcribeResponse = await authenticatedFormPost('/api/transcribe', formData);
 
         if (!transcribeResponse.ok) {
           throw new Error('Transcription failed');
@@ -634,16 +658,12 @@ export default function CreateMaterialsPage() {
         }));
       }, 25000);
 
-      const generateResponse = await fetch('/api/quizzes/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content,
-          title: `Quiz: ${audioFile?.name || slideFiles[0]?.name || 'Lecture Quiz'}`,
-          questionCount: 10,
-          difficulty: 'medium',
-          modelTier: selectedModelTier,
-        }),
+      const generateResponse = await authenticatedPost('/api/quizzes/generate', {
+        content,
+        title: `Quiz: ${audioFile?.name || slideFiles[0]?.name || 'Lecture Quiz'}`,
+        questionCount: 10,
+        difficulty: 'medium',
+        modelTier: selectedModelTier,
       });
 
       if (!generateResponse.ok) {
@@ -655,7 +675,7 @@ export default function CreateMaterialsPage() {
         throw new Error(errorData.error || 'Failed to generate quiz');
       }
 
-      const generateData = await generateResponse.json();
+      const generateData = await generateResponse.json() as GenerateQuizResponse;
 
       setProcessingSteps(prev => ({
         ...prev,
@@ -666,10 +686,10 @@ export default function CreateMaterialsPage() {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Store quiz data in sessionStorage for results page
-      sessionStorage.setItem('generatedQuiz', JSON.stringify(generateData.quiz));
-      sessionStorage.setItem('studyMaterialType', 'quiz');
+      setSessionItem('generatedQuiz', JSON.stringify(generateData.quiz));
+      setSessionItem('studyMaterialType', 'quiz');
       if (transcript) {
-        sessionStorage.setItem('studyMaterialTranscript', transcript);
+        setSessionItem('studyMaterialTranscript', transcript);
       }
 
       // Cache extracted text for reuse
@@ -680,7 +700,7 @@ export default function CreateMaterialsPage() {
       });
 
       // Store raw extraction for regeneration
-      sessionStorage.setItem('rawExtraction', JSON.stringify({
+      setSessionItem('rawExtraction', JSON.stringify({
         transcript,
         slideText,
         imageAnalysis
@@ -745,24 +765,21 @@ export default function CreateMaterialsPage() {
         wordCount: result.split(/\s+/).length
       };
 
-      console.log('Saving material to hub...', { title, materialType: outputType });
+      console.log('Saving material to hub...', { title, materialType: outputType, folderId: selectedFolderId });
 
-      // Save to API
-      const response = await fetch('/api/study-materials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          materialType: outputType,
-          content: result,
-          transcript: generatedTranscript,
-          sources: {
-            hasAudio: !!audioFile,
-            hasSlides: slideFiles.length > 0,
-            hasPhotos: photoFiles.length > 0
-          },
-          metadata
-        })
+      // Save to API (using authenticatedPost to include auth token)
+      const response = await authenticatedPost('/api/study-materials', {
+        title,
+        materialType: outputType,
+        content: result,
+        transcript: generatedTranscript,
+        sources: {
+          hasAudio: !!audioFile,
+          hasSlides: slideFiles.length > 0,
+          hasPhotos: photoFiles.length > 0
+        },
+        metadata,
+        folderId: selectedFolderId
       });
 
       if (!response.ok) {
@@ -880,17 +897,14 @@ export default function CreateMaterialsPage() {
         materialGeneration: { status: 'loading', message: 'Generating study materials with AI...' }
       }));
 
-      const generateResponse = await fetch('/api/generate-materials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript: cachedExtraction?.transcript || '',
-          slideText: cachedExtraction?.slideText || '',
-          imageAnalysis: cachedExtraction?.imageAnalysis || '',
-          materialType: type,
-          customPrompt: type === 'custom' ? promptToUse : undefined,
-          maxImages, // User-selected image limit (0-2)
-        }),
+      // Use authenticatedPost to include auth token
+      const generateResponse = await authenticatedPost('/api/generate-materials', {
+        transcript: cachedExtraction?.transcript || '',
+        slideText: cachedExtraction?.slideText || '',
+        imageAnalysis: cachedExtraction?.imageAnalysis || '',
+        materialType: type,
+        customPrompt: type === 'custom' ? promptToUse : undefined,
+        maxImages, // User-selected image limit (0-2)
       });
 
       if (!generateResponse.ok) {
@@ -902,7 +916,7 @@ export default function CreateMaterialsPage() {
         throw new Error(errorData.error || 'Failed to generate materials');
       }
 
-      const generateData = await generateResponse.json();
+      const generateData = await generateResponse.json() as GenerateMaterialsResponse;
 
       // Show success
       setProcessingSteps(prev => ({
@@ -914,10 +928,10 @@ export default function CreateMaterialsPage() {
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Store data and navigate to results
-      sessionStorage.setItem('studyMaterialContent', generateData.content);
-      sessionStorage.setItem('studyMaterialType', type);
+      setSessionItem('studyMaterialContent', generateData.content);
+      setSessionItem('studyMaterialType', type);
       if (cachedExtraction?.transcript) {
-        sessionStorage.setItem('studyMaterialTranscript', cachedExtraction.transcript);
+        setSessionItem('studyMaterialTranscript', cachedExtraction.transcript);
       }
 
       router.push('/results');
@@ -939,7 +953,7 @@ export default function CreateMaterialsPage() {
     setPhotoFiles([]);
     setCachedExtraction(null);
     setGeneratedTranscript('');
-    sessionStorage.clear();
+    clearSession();
     setProcessingSteps({
       transcription: { status: 'idle', message: '' },
       slideExtraction: { status: 'idle', message: '' },
@@ -949,6 +963,7 @@ export default function CreateMaterialsPage() {
   };
 
   return (
+    <AuthGuard>
     <div className="min-h-screen bg-mesh-academic dark:bg-mesh-academic-dark texture-noise">
       {/* Header */}
       <header className="glass dark:glass-dark border-b border-border-light dark:border-border-dark sticky top-0 z-50 shadow-sm backdrop-blur-lg" role="banner">
@@ -956,11 +971,11 @@ export default function CreateMaterialsPage() {
           <div className="flex items-center justify-between">
             <Link href="/">
               <h1 className="text-2xl font-heading font-bold text-gradient-academic cursor-pointer hover:opacity-80 transition-opacity">
-                LectureHelper AI
+                CrammingAI
               </h1>
             </Link>
             <nav aria-label="Main navigation">
-              <div className="flex gap-3">
+              <div className="flex items-center gap-3">
                 <Link
                   href="/materials"
                   className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2 font-semibold"
@@ -979,6 +994,7 @@ export default function CreateMaterialsPage() {
                   <span className="hidden md:inline">Study Hub</span>
                   <span className="md:hidden">Hub</span>
                 </Link>
+                <UserMenu />
               </div>
             </nav>
           </div>
@@ -1290,6 +1306,16 @@ export default function CreateMaterialsPage() {
                 </div>
               </div>
 
+              {/* Folder Selection */}
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <FolderPicker
+                  selectedFolderId={selectedFolderId}
+                  onSelectFolder={setSelectedFolderId}
+                  label="Save to Folder (Optional)"
+                  placeholder="No folder (save to main hub)"
+                />
+              </div>
+
               {outputType === 'custom' && (
                 <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1394,5 +1420,6 @@ export default function CreateMaterialsPage() {
         transcript={generatedTranscript}
       />
     </div>
+    </AuthGuard>
   );
 }

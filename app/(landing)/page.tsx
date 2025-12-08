@@ -11,7 +11,7 @@ export default function LandingPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-heading font-bold text-gradient-academic">
-              LectureHelper AI
+              CrammingAI
             </h1>
             <nav aria-label="Main navigation">
               <div className="flex gap-3">
@@ -120,7 +120,7 @@ export default function LandingPage() {
           {/* Features Section */}
           <div className="py-20">
             <h3 className="text-3xl md:text-4xl font-heading font-bold text-center text-oxford-blue dark:text-text-dark mb-12">
-              Why Choose LectureHelper AI?
+              Why Choose CrammingAI?
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
@@ -171,7 +171,7 @@ export default function LandingPage() {
       <footer className="border-t border-border-light dark:border-border-dark py-8 mt-20">
         <div className="container mx-auto px-4 text-center">
           <p className="text-text-muted dark:text-text-dark-muted">
-            &copy; 2024 LectureHelper AI. Empowering students with AI-driven learning tools.
+            &copy; 2024 CrammingAI. Smart studying, not hard studying.
           </p>
         </div>
       </footer>

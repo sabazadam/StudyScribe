@@ -8,21 +8,30 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { question, transcript, studyMaterials, conversationHistory, modelTier } = body;
 
-    if (!question) {
+    // Import validation schema and helpers
+    const { chatMessageSchema, validateRequestSafe, sanitizeInput } = await import('@/lib/validation');
+
+    // Validate request body
+    const validation = validateRequestSafe(chatMessageSchema, body);
+
+    if (!validation.success) {
+      console.error('[Chat] Validation failed:', validation.error);
       return NextResponse.json(
-        { error: 'No question provided' },
+        {
+          error: 'Invalid request data',
+          details: validation.error,
+          validationErrors: validation.errors,
+        },
         { status: 400 }
       );
     }
 
-    if (!transcript && !studyMaterials) {
-      return NextResponse.json(
-        { error: 'No context provided. Need transcript or study materials.' },
-        { status: 400 }
-      );
-    }
+    // Use validated data
+    const { question, transcript, studyMaterials, conversationHistory, modelTier } = validation.data!;
+
+    // Sanitize question
+    const sanitizedQuestion = sanitizeInput(question);
 
     // Get the appropriate model based on user selection
     const selectedModel = getModelById((modelTier as ModelTier) || 'default');
@@ -43,12 +52,14 @@ export async function POST(request: NextRequest) {
     if (conversationHistory && conversationHistory.length > 0) {
       contextPrompt += `Previous Conversation:\n`;
       conversationHistory.forEach((msg: any) => {
-        contextPrompt += `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${msg.content}\n`;
+        // Sanitize conversation history content
+        const sanitizedContent = sanitizeInput(msg.content);
+        contextPrompt += `${msg.role === 'user' ? 'Student' : 'Assistant'}: ${sanitizedContent}\n`;
       });
       contextPrompt += `\n`;
     }
 
-    contextPrompt += `Student's Question: ${question}\n\nProvide a clear, helpful answer based on the lecture content. If the question is about something not covered in the materials, politely let them know and offer related information if possible.`;
+    contextPrompt += `Student's Question: ${sanitizedQuestion}\n\nProvide a clear, helpful answer based on the lecture content. If the question is about something not covered in the materials, politely let them know and offer related information if possible.`;
 
     console.log('Processing follow-up question...');
 

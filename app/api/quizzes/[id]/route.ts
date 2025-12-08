@@ -6,8 +6,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getQuizById, updateQuiz, deleteQuiz } from '@/lib/quizStorage';
+import { getQuizById, deleteQuiz } from '@/lib/firestore/quizRepository';
 import { Quiz, QuizQuestion } from '@/lib/quizTypes';
+import { verifyUserAuth } from '@/lib/middleware/authMiddleware';
+// TODO: Implement updateQuiz in quizRepository
 
 /**
  * Shuffle array (Fisher-Yates algorithm)
@@ -32,12 +34,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Auth is optional for GET - quizzes can be accessed by ID directly
     const { id } = params;
     const searchParams = request.nextUrl.searchParams;
     const randomize = searchParams.get('randomize') === 'true';
     const includeAnswers = searchParams.get('includeAnswers') === 'true';
 
-    const quiz = getQuizById(id);
+    const quiz = await getQuizById(id, '');
 
     if (!quiz) {
       return NextResponse.json(
@@ -47,16 +50,19 @@ export async function GET(
     }
 
     // Create a copy to avoid mutating original
-    let responseQuiz: Quiz = { ...quiz };
+    let responseQuiz: any = { ...quiz };
 
     // Randomize questions if requested
-    if (randomize) {
-      responseQuiz.questions = shuffleArray(quiz.questions);
+    if (randomize && quiz.quiz?.questions) {
+      responseQuiz.quiz = {
+        ...quiz.quiz,
+        questions: shuffleArray(quiz.quiz.questions)
+      };
     }
 
     // Remove answers and explanations if not requested
-    if (!includeAnswers) {
-      responseQuiz.questions = responseQuiz.questions.map(q => ({
+    if (!includeAnswers && responseQuiz.quiz?.questions) {
+      responseQuiz.quiz.questions = responseQuiz.quiz.questions.map((q: any) => ({
         ...q,
         correctAnswer: -1, // Hide correct answer
         explanation: '', // Hide explanation
@@ -76,7 +82,9 @@ export async function GET(
 /**
  * PATCH /api/quizzes/[id]
  * Update quiz
+ * TODO: Implement updateQuiz in quizRepository
  */
+/* Temporarily disabled until updateQuiz is implemented
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -147,6 +155,7 @@ export async function PATCH(
     );
   }
 }
+*/
 
 /**
  * DELETE /api/quizzes/[id]
@@ -157,15 +166,17 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
-    const success = deleteQuiz(id);
-
-    if (!success) {
+    // Verify authentication
+    const user = await verifyUserAuth(request);
+    if (!user) {
       return NextResponse.json(
-        { error: 'Quiz not found' },
-        { status: 404 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       );
     }
+
+    const { id } = params;
+    await deleteQuiz(id, user.userId);
 
     return NextResponse.json({ message: 'Quiz deleted successfully' });
   } catch (error) {

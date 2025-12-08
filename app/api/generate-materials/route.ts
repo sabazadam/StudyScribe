@@ -8,6 +8,10 @@ import {
   estimateEducationalLevel,
 } from '@/lib/imageEnhancer';
 import { MaterialImageData, ImageGenerationResponse } from '@/lib/types/image';
+import { verifyUserAuth } from '@/lib/middleware/authMiddleware';
+import { saveMaterial } from '@/lib/firestore/materialRepository';
+import { MaterialType, MaterialSources } from '@/lib/types/firestore';
+import { withTimeout, TimeoutError } from '@/lib/utils/timeout';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -894,9 +898,98 @@ ${content}
 };
 
 export async function POST(request: NextRequest) {
+  // Verify authentication
+  const user = await verifyUserAuth(request);
+  if (!user) {
+    return NextResponse.json(
+      { error: 'Unauthorized. Please sign in to generate materials.' },
+      { status: 401 }
+    );
+  }
+
+  // Import atomic quota service and cost utilities
+  const { reserveQuota, rollbackReservation, QuotaReservationError } = await import('@/lib/firestore/atomicQuotaService');
+  const { getEstimatedCost } = await import('@/lib/firestore/costRepository');
+
+  let reservation = null;
+
   try {
+    // Parse and validate request body
     const body = await request.json();
-    const { transcript, slideText, imageAnalysis, materialType, customPrompt, extractionErrors, modelTier, maxImages } = body;
+
+    // Import validation schema and sanitization helpers
+    const { generateMaterialsSchema, validateRequestSafe, sanitizeInput } = await import('@/lib/validation');
+
+    // Validate request body
+    const validation = validateRequestSafe(generateMaterialsSchema, body);
+
+    if (!validation.success) {
+      console.error('[GenerateMaterials] Validation failed:', validation.error);
+      return NextResponse.json(
+        {
+          error: 'Invalid request data',
+          details: validation.error,
+          validationErrors: validation.errors,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Use validated and sanitized data
+    const { transcript, slideText, imageAnalysis, materialType, customPrompt, extractionErrors, modelTier, maxImages } = validation.data!;
+
+    // Additional sanitization for custom prompt if provided
+    const sanitizedCustomPrompt = customPrompt ? sanitizeInput(customPrompt) : undefined;
+
+    // ========================================================================
+    // ATOMIC QUOTA RESERVATION - BEFORE EXPENSIVE OPERATIONS
+    // ========================================================================
+    // Reserve quota atomically BEFORE doing any expensive work
+    // This prevents race conditions and ensures quota is enforced correctly
+    const modelTierKey = modelTier as 'gemini_flash' | 'gemini_pro' | 'gemini_experimental' | undefined;
+    let estimatedCost = getEstimatedCost('generate-materials', modelTierKey);
+
+    // Defensive: Ensure cost is never undefined or 0
+    if (!estimatedCost || estimatedCost === 0 || typeof estimatedCost !== 'number') {
+      console.warn('[GenerateMaterials] Invalid estimated cost:', estimatedCost, 'modelTier:', modelTier, 'using default 0.02');
+      estimatedCost = 0.02; // Fallback to default Gemini Flash cost
+    }
+
+    console.log('[GenerateMaterials] Estimated cost:', estimatedCost, 'for model tier:', modelTierKey || 'default');
+
+    try {
+      reservation = await reserveQuota(
+        user.userId,
+        'materials',
+        'generate-materials',
+        estimatedCost,
+        1 // Reserve 1 material slot
+      );
+      console.log(`[GenerateMaterials] Quota reserved successfully for user ${user.userId}, reservation: ${reservation.reservationId}`);
+    } catch (quotaError: any) {
+      if (quotaError instanceof QuotaReservationError) {
+        // Enhanced error logging with full diagnostic information
+        console.error('[GenerateMaterials] Quota reservation failed:', {
+          userId: user.userId,
+          reason: quotaError.reason,
+          message: quotaError.message,
+          details: quotaError.details,
+          timestamp: new Date().toISOString(),
+          estimatedCost,
+        });
+
+        return NextResponse.json(
+          {
+            error: quotaError.message,
+            reason: quotaError.reason,
+            details: quotaError.details,
+          },
+          { status: 429 }
+        );
+      }
+      throw quotaError; // Re-throw unexpected errors
+    }
+    // ========================================================================
 
     // Check what sources were provided and which failed
     const hasTranscript = transcript && transcript.trim().length > 0;
@@ -966,16 +1059,16 @@ export async function POST(request: NextRequest) {
     });
 
     // Validate context with detailed feedback
-    const validation = validateContext({
+    const contextValidation = validateContext({
       transcript: transcript || '',
       slideText: slideText || '',
       imageAnalysis: imageAnalysis || ''
     });
-    if (!validation.valid) {
+    if (!contextValidation.valid) {
       return NextResponse.json(
         {
-          error: validation.message || 'Validation failed',
-          details: validation.details ? validation.details.join('\n') : undefined,
+          error: contextValidation.message || 'Validation failed',
+          details: contextValidation.details ? contextValidation.details.join('\n') : undefined,
           suggestions: [
             'Upload files with more content',
             'Ensure PDFs have selectable text (not scanned images)',
@@ -1014,7 +1107,8 @@ export async function POST(request: NextRequest) {
     // Build the prompt using merged content
     let basePrompt: string;
     if (materialType === 'custom') {
-      basePrompt = PROMPTS.custom(mergedContext.combinedContent, customPrompt);
+      // Use sanitized custom prompt
+      basePrompt = PROMPTS.custom(mergedContext.combinedContent, sanitizedCustomPrompt || '');
     } else {
       // Type-safe access to non-custom prompt generators (all take 1 argument)
       type NonCustomMaterialType = Exclude<keyof typeof PROMPTS, 'custom'>;
@@ -1035,10 +1129,29 @@ export async function POST(request: NextRequest) {
       console.log('Custom Request:', customPrompt);
     }
 
-    // Generate content
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const generatedText = response.text();
+    // Generate content with 60-second timeout
+    let result, response, generatedText;
+    try {
+      result = await withTimeout(
+        model.generateContent(prompt),
+        60000,
+        'Gemini Material Generation'
+      );
+      response = await result.response;
+      generatedText = response.text();
+    } catch (error) {
+      if (error instanceof TimeoutError) {
+        console.error('[Generate Materials] Request timed out after 60 seconds');
+        return NextResponse.json(
+          {
+            error: 'Material generation timed out',
+            message: 'The AI took too long to generate materials. Please try again with shorter content or a simpler request.',
+          },
+          { status: 408 }
+        );
+      }
+      throw error; // Re-throw non-timeout errors
+    }
 
     console.log('Materials generated successfully');
 
@@ -1047,10 +1160,10 @@ export async function POST(request: NextRequest) {
     const parsedContent = parseVisualMarkers(generatedText);
     console.log(`Found ${parsedContent.markerCount} visual markers`);
 
-    // Parse and validate maxImages (default to 2 if not provided)
+    // Parse and validate maxImages (default to 0 if not provided)
     const userMaxImages = maxImages !== undefined
-      ? Math.min(Math.max(0, parseInt(maxImages)), 2) // Clamp between 0 and 2
-      : 2; // Default to 2
+      ? Math.min(Math.max(0, maxImages), 2) // Clamp between 0 and 2
+      : 0; // Default to 0 (no images unless explicitly requested)
 
     // Auto-generate images if markers exist and user wants images
     let finalContent = generatedText;
@@ -1071,7 +1184,44 @@ export async function POST(request: NextRequest) {
 
       console.log(`Generated ${proposals.length} image proposals (user limit: ${userMaxImages})`);
 
-      // Auto-generate images for each proposal
+      // ========================================================================
+      // RESERVE IMAGE QUOTA BEFORE GENERATION (ATOMIC ENFORCEMENT)
+      // ========================================================================
+      // Reserve quota for ALL images BEFORE generating any of them
+      // This prevents quota bypass - if quota check fails, no images are generated
+      let imageQuotaReservation = null;
+      if (proposals.length > 0) {
+        try {
+          const estimatedImageCost = getEstimatedCost('generate-image') * proposals.length;
+          imageQuotaReservation = await reserveQuota(
+            user.userId,
+            'images',
+            'generate-image',
+            estimatedImageCost,
+            proposals.length
+          );
+          console.log(`[GenerateMaterials] Image quota reserved BEFORE generation: ${proposals.length} images, $${estimatedImageCost.toFixed(4)}, reservation: ${imageQuotaReservation.reservationId}`);
+        } catch (imageQuotaError: any) {
+          console.warn('[GenerateMaterials] Image quota reservation failed - skipping image generation:', imageQuotaError.message);
+          // Don't fail the entire request - just skip image generation
+          // Replace all markers with placeholders
+          for (const marker of parsedContent.markers) {
+            finalContent = finalContent.replaceAll(marker.rawMarker, `[Image quota exceeded]`);
+          }
+          // Skip image generation by clearing proposals
+          proposals.length = 0;
+        }
+      }
+      // ========================================================================
+
+      // Debug: Log initial markers
+      console.log('[DEBUG] Total markers parsed:', parsedContent.markerCount);
+      console.log('[DEBUG] Markers:', parsedContent.markers.map(m => ({
+        id: m.id,
+        rawMarker: m.rawMarker.substring(0, 80) + (m.rawMarker.length > 80 ? '...' : '')
+      })));
+
+      // Auto-generate images for each proposal (only if quota was reserved)
       const generatedImages: ImageGenerationResponse[] = [];
       let totalCost = 0;
 
@@ -1108,7 +1258,26 @@ export async function POST(request: NextRequest) {
 
               const marker = parsedContent.markers.find(m => m.id === proposal.markerId);
               if (marker) {
-                finalContent = finalContent.replace(marker.rawMarker, imageMarkdown);
+                // Debug logging to diagnose replacement issues
+                console.log('[DEBUG] Attempting to replace marker:', marker.id);
+                console.log('[DEBUG] marker.rawMarker:', JSON.stringify(marker.rawMarker));
+                console.log('[DEBUG] Marker found in content?:', finalContent.includes(marker.rawMarker));
+                console.log('[DEBUG] Image markdown length:', imageMarkdown.length);
+
+                const beforeReplace = finalContent.length;
+                finalContent = finalContent.replaceAll(marker.rawMarker, imageMarkdown);
+                const afterReplace = finalContent.length;
+
+                console.log('[DEBUG] Content changed?:', beforeReplace !== afterReplace);
+                console.log('[DEBUG] Length difference:', afterReplace - beforeReplace);
+
+                if (beforeReplace === afterReplace) {
+                  console.error('[ERROR] Marker replacement failed! Marker not found in content.');
+                  console.error('[ERROR] Looking for:', marker.rawMarker);
+                  console.error('[ERROR] Content sample:', finalContent.substring(0, 500));
+                }
+              } else {
+                console.error('[ERROR] Could not find marker with ID:', proposal.markerId);
               }
 
               console.log(`✓ Image generated successfully for: ${proposal.originalDescription.substring(0, 50)}...`);
@@ -1117,7 +1286,7 @@ export async function POST(request: NextRequest) {
               // Replace with placeholder
               const marker = parsedContent.markers.find(m => m.id === proposal.markerId);
               if (marker) {
-                finalContent = finalContent.replace(marker.rawMarker, `[Image could not be generated: ${proposal.originalDescription}]`);
+                finalContent = finalContent.replaceAll(marker.rawMarker, `[Image could not be generated: ${proposal.originalDescription}]`);
               }
             }
           } else {
@@ -1125,7 +1294,7 @@ export async function POST(request: NextRequest) {
             // Replace with placeholder
             const marker = parsedContent.markers.find(m => m.id === proposal.markerId);
             if (marker) {
-              finalContent = finalContent.replace(marker.rawMarker, `[Image could not be generated: ${proposal.originalDescription}]`);
+              finalContent = finalContent.replaceAll(marker.rawMarker, `[Image could not be generated: ${proposal.originalDescription}]`);
             }
           }
         } catch (imageError: any) {
@@ -1157,8 +1326,64 @@ export async function POST(request: NextRequest) {
       console.log('User set maxImages=0, removed all image markers from content');
     }
 
+    // Extract title from content (first heading or first 60 chars)
+    const titleMatch = finalContent.match(/^#\s+(.+)$/m);
+    const extractedTitle = titleMatch
+      ? titleMatch[1].trim()
+      : finalContent.substring(0, 60).trim() + '...';
+
+    // Prepare sources in Firestore format
+    const firestoreSources: MaterialSources = {
+      transcript: transcript || undefined,
+      slideText: slideText || undefined,
+      imageAnalysis: imageAnalysis || undefined,
+    };
+
+    // Convert imageData to Firestore format if exists
+    const firestoreImageData = imageData ? {
+      count: imageData.finalImages.length,
+      images: imageData.finalImages.map((img, index) => ({
+        prompt: imageData.proposals[index]?.enhancedPrompt || '',
+        data: img.imageData || '',
+        mimeType: img.mimeType,
+      })),
+    } : undefined;
+
+    // Save material to Firestore
+    console.log('Saving material to Firestore...');
+    const materialId = await saveMaterial(user.userId, {
+      content: finalContent,
+      materialType: materialType as MaterialType,
+      sources: firestoreSources,
+      imageData: firestoreImageData,
+      title: extractedTitle,
+      tags: [], // Can be added later via update
+    });
+
+    console.log('Material saved to Firestore with ID:', materialId);
+
+    // ========================================================================
+    // QUOTA ALREADY RESERVED ATOMICALLY
+    // ========================================================================
+    // Material quota reservation (line ~959) atomically reserved quota
+    // BEFORE material generation started.
+    //
+    // Image quota reservation (lines 1164-1185) atomically reserved quota
+    // BEFORE image generation started.
+    //
+    // Both reservations already:
+    // 1. Checked quota limits
+    // 2. Checked budget limits (user + global)
+    // 3. Incremented usage counters
+    // 4. Recorded costs
+    //
+    // If we reach here, the operation succeeded and all quota is already consumed.
+    // No additional quota operations needed.
+    // ========================================================================
+
     return NextResponse.json({
       success: true,
+      materialId, // Return the Firestore document ID
       content: finalContent, // Return content with embedded images or placeholders
       materialType,
       timestamp: new Date().toISOString(),
@@ -1171,6 +1396,25 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('Material generation error:', error);
+
+    // ========================================================================
+    // ROLLBACK QUOTA RESERVATION ON FAILURE
+    // ========================================================================
+    // If operation fails after quota was reserved, rollback the reservation
+    // to refund the user's quota and cost tracking
+    if (reservation) {
+      console.log(`[GenerateMaterials] Rolling back quota reservation ${reservation.reservationId} for user ${user.userId}`);
+      try {
+        await rollbackReservation(reservation);
+        console.log(`[GenerateMaterials] Rollback successful`);
+      } catch (rollbackError) {
+        console.error(`[GenerateMaterials] Rollback failed:`, rollbackError);
+        // Rollback failure is logged but doesn't affect the error response
+        // Manual reconciliation may be needed in this rare case
+      }
+    }
+    // ========================================================================
+
     return NextResponse.json(
       {
         error: 'Failed to generate study materials',

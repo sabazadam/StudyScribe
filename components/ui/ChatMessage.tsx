@@ -4,6 +4,7 @@ import { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
 import 'katex/dist/katex.min.css';
 
 interface ChatMessageProps {
@@ -55,7 +56,7 @@ export default function ChatMessage({
               <div className="prose prose-sm dark:prose-invert max-w-none">
                 <ReactMarkdown
                   remarkPlugins={[remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
+                  rehypePlugins={[rehypeRaw, rehypeKatex]}
                   components={{
                     // Custom styling for markdown elements
                     h1: ({node, ...props}) => <h1 className="text-xl font-bold mt-4 mb-2" {...props} />,

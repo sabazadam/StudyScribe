@@ -5,9 +5,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { createQuiz } from '@/lib/quizStorage';
-import { QuizQuestion } from '@/lib/quizTypes';
+import { saveQuiz } from '@/lib/firestore/quizRepository';
+import { QuizQuestion } from '@/lib/types/firestore';
 import { getModelById, type ModelTier } from '@/lib/models';
+import { verifyUserAuth } from '@/lib/middleware/authMiddleware';
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -64,33 +65,29 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate required fields
-    if (!body.content || !body.title) {
+    // Import validation schema and helpers
+    const { generateQuizSchema, validateRequestSafe, sanitizeInput } = await import('@/lib/validation');
+
+    // Validate request body
+    const validation = validateRequestSafe(generateQuizSchema, body);
+
+    if (!validation.success) {
+      console.error('[GenerateQuiz] Validation failed:', validation.error);
       return NextResponse.json(
-        { error: 'Missing required fields: content, title' },
+        {
+          error: 'Invalid quiz generation request',
+          details: validation.error,
+          validationErrors: validation.errors,
+        },
         { status: 400 }
       );
     }
 
-    const questionCount = body.questionCount || 10;
-    const difficulty = body.difficulty || 'medium';
-    const modelTier: ModelTier = body.modelTier || 'better'; // Use pro model for better quality
+    // Use validated data
+    const { content, title, questionCount, difficulty, modelTier, timeLimit, materialId } = validation.data!;
 
-    // Validate question count
-    if (questionCount < 1 || questionCount > 50) {
-      return NextResponse.json(
-        { error: 'Question count must be between 1 and 50' },
-        { status: 400 }
-      );
-    }
-
-    // Validate difficulty
-    if (!['easy', 'medium', 'hard'].includes(difficulty)) {
-      return NextResponse.json(
-        { error: 'Difficulty must be easy, medium, or hard' },
-        { status: 400 }
-      );
-    }
+    // Sanitize title
+    const sanitizedTitle = sanitizeInput(title);
 
     // Generate quiz using Gemini
     const model = genAI.getGenerativeModel({
@@ -101,7 +98,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const prompt = QUIZ_GENERATION_PROMPT(body.content, questionCount, difficulty);
+    const prompt = QUIZ_GENERATION_PROMPT(content, questionCount!, difficulty!);
 
     console.log('Generating quiz with Gemini...');
     const result = await model.generateContent(prompt);
@@ -158,6 +155,7 @@ export async function POST(request: NextRequest) {
         options: q.options,
         correctAnswer: q.correctAnswer,
         explanation: q.explanation,
+        points: q.points || 1,
         difficulty: q.difficulty || difficulty,
         order: index,
       };
@@ -168,22 +166,43 @@ export async function POST(request: NextRequest) {
       console.warn(`Requested ${questionCount} questions but got ${validatedQuestions.length}`);
     }
 
+    // Verify authentication
+    const user = await verifyUserAuth(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     // Create the quiz
-    const newQuiz = createQuiz({
-      title: body.title,
-      description: body.description || `Auto-generated ${difficulty} quiz with ${validatedQuestions.length} questions`,
-      questions: validatedQuestions,
-      materialId: body.materialId,
-      status: 'published',
-      timeLimit: body.timeLimit,
-      passingScore: body.passingScore,
-      tags: body.tags || ['auto-generated', difficulty],
+    const quizId = await saveQuiz(user.userId, {
+      quiz: {
+        title: sanitizedTitle,
+        description: `Auto-generated ${difficulty} quiz with ${validatedQuestions.length} questions`,
+        questions: validatedQuestions,
+        timeLimit: timeLimit,
+      },
+      sources: {
+        // Source material ID is tracked in metadata
+      },
+      metadata: {
+        totalQuestions: validatedQuestions.length,
+        totalPoints: validatedQuestions.reduce((sum, q) => sum + (q.points || 1), 0),
+        difficulty: difficulty as 'easy' | 'medium' | 'hard' | undefined,
+      },
     });
 
     console.log(`Successfully generated quiz with ${validatedQuestions.length} questions`);
 
     return NextResponse.json({
-      quiz: newQuiz,
+      quiz: {
+        id: quizId,
+        title: sanitizedTitle,
+        description: `Auto-generated ${difficulty} quiz with ${validatedQuestions.length} questions`,
+        questions: validatedQuestions,
+        materialId,
+       },
       message: `Successfully generated ${validatedQuestions.length} questions`,
     }, { status: 201 });
 

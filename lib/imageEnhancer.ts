@@ -1,5 +1,5 @@
 /**
- * Image Enhancement Utility for LectureHelper AI
+ * Image Enhancement Utility for CrammingAI
  *
  * This utility provides functions for:
  * - Parsing visual markers ({{IMAGE:...}}) from generated content
