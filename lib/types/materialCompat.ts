@@ -6,7 +6,7 @@
  * ==============================================================================
  */
 
-import { Material, MaterialType } from './firestore';
+import { Material, MaterialType, MaterialListItem } from './firestore';
 
 /**
  * Legacy SavedStudyMaterial interface (for backward compatibility)
@@ -36,6 +36,25 @@ export interface SavedStudyMaterial {
     imageAnalysis: string;
   };
   linkedQuizzes?: string[];
+  folderId?: string | null;
+  folderPath?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Lightweight list item for Study Hub display
+ * Excludes heavy content to reduce data transfer
+ */
+export interface SavedMaterialListItem {
+  id: string;
+  title: string;
+  materialType: MaterialType;
+  sources: {
+    hasAudio: boolean;
+    hasSlides: boolean;
+    hasPhotos: boolean;
+  };
   folderId?: string | null;
   folderPath?: string[];
   createdAt: string;
@@ -97,4 +116,35 @@ export function materialToSavedMaterial(material: Material): SavedStudyMaterial 
  */
 export function materialsToSavedMaterials(materials: Material[]): SavedStudyMaterial[] {
   return materials.map(materialToSavedMaterial);
+}
+
+/**
+ * Convert MaterialListItem to lightweight SavedMaterialListItem
+ * Used for Study Hub display without fetching full content
+ *
+ * @param item - Lightweight MaterialListItem from API
+ * @returns SavedMaterialListItem compatible object
+ */
+export function listItemToSavedListItem(item: MaterialListItem): SavedMaterialListItem {
+  return {
+    id: item.id,
+    title: item.title,
+    materialType: item.materialType,
+    sources: {
+      hasAudio: item.hasTranscript,
+      hasSlides: item.hasSlides,
+      hasPhotos: item.hasImages,
+    },
+    folderId: item.folderId,
+    folderPath: item.folderPath,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
+/**
+ * Convert array of MaterialListItem to SavedMaterialListItem array
+ */
+export function listItemsToSavedListItems(items: MaterialListItem[]): SavedMaterialListItem[] {
+  return items.map(listItemToSavedListItem);
 }

@@ -11,6 +11,9 @@
     "deploy": "firebase deploy --only hosting"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@fal-ai/serverless-client": "^0.15.0",
     "@google/generative-ai": "^0.21.0",
     "@sentry/nextjs": "^10.28.0",
@@ -32,6 +35,7 @@
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.0",
     "remark-math": "^6.0.0",
+    "uuid": "^13.0.0",
     "xml2js": "^0.6.2",
     "zod": "^4.1.13"
   },
@@ -39,6 +43,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/uuid": "^10.0.0",
     "@types/xml2js": "^0.4.14",
     "autoprefixer": "^10.4.0",
     "eslint": "^8",

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/components/contexts/AuthContext'
 import { Header } from '@/components/layout/Header'
 import { authenticatedPost, authenticatedFormPost } from '@/lib/api/client'
 

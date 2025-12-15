@@ -16,6 +16,8 @@ import {
   deleteMaterial,
   searchMaterials,
   saveMaterial,
+  getMaterialsList,
+  getMaterialsCount,
 } from '@/lib/firestore/materialRepository';
 import { MaterialType } from '@/lib/types/firestore';
 import {
@@ -34,6 +36,9 @@ import {
  * - id: Get specific material by ID
  * - type: Filter by material type
  * - search: Search materials by title or content
+ * - mode: 'list' for lightweight paginated list (recommended for Study Hub)
+ * - limit: Number of items per page (default 8, max 50)
+ * - cursor: Document ID for pagination
  */
 export async function GET(request: NextRequest) {
   // Verify authentication
@@ -47,8 +52,11 @@ export async function GET(request: NextRequest) {
     const id = searchParams.get('id');
     const type = searchParams.get('type');
     const search = searchParams.get('search');
+    const mode = searchParams.get('mode');
+    const cursor = searchParams.get('cursor') || undefined;
+    const limit = Math.min(parseInt(searchParams.get('limit') || '8'), 50);
 
-    // Get specific material by ID
+    // Get specific material by ID (full content)
     if (id) {
       const material = await getMaterialById(id, user.userId);
 
@@ -63,7 +71,29 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Search materials
+    // NEW: Lightweight paginated list mode (optimized for Study Hub)
+    if (mode === 'list') {
+      const [listResult, totalCount] = await Promise.all([
+        getMaterialsList(user.userId, limit, cursor),
+        cursor ? Promise.resolve(undefined) : getMaterialsCount(user.userId), // Only count on first page
+      ]);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          materials: listResult.materials,
+          pagination: {
+            nextCursor: listResult.nextCursor,
+            hasMore: listResult.hasMore,
+            pageSize: limit,
+            totalCount: totalCount,
+          }
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Search materials (full content needed for search)
     if (search) {
       const materials = await searchMaterials(user.userId, search);
       return NextResponse.json({
@@ -73,7 +103,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get materials by type
+    // Get materials by type (legacy - full content)
     if (type) {
       const materials = await getUserMaterialsByType(
         user.userId,
@@ -87,7 +117,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get all materials (default)
+    // Get all materials (legacy - full content, for backward compatibility)
     const materials = await getUserMaterials(user.userId, 50);
     return NextResponse.json({
       success: true,

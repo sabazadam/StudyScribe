@@ -8,6 +8,7 @@ import os from 'os';
 import { Blob } from 'buffer';
 import { verifyUserAuth } from '@/lib/middleware/authMiddleware';
 import { withTimeout, TimeoutError } from '@/lib/utils/timeout';
+import { saveTranscript } from '@/lib/firestore/transcriptRepository';
 
 // Configure fal.ai with API key
 fal.config({
@@ -67,9 +68,9 @@ async function convertToWAV(inputBuffer: Buffer, originalName: string): Promise<
 
     // Cleanup temp files on error
     try {
-      await unlink(inputPath).catch(() => {});
-      await unlink(outputPath).catch(() => {});
-    } catch {}
+      await unlink(inputPath).catch(() => { });
+      await unlink(outputPath).catch(() => { });
+    } catch { }
 
     throw new Error(`Audio conversion failed: ${error.message}`);
   }
@@ -87,11 +88,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.formData();
-    const file = formData.get('file') as File;
+    // Accept both 'audio' (from transcribe page) and 'file' (for backward compat)
+    const file = (formData.get('audio') || formData.get('file')) as File;
 
     if (!file) {
       return NextResponse.json(
-        { error: 'No file provided' },
+        { error: 'No file provided. Please upload an audio file.' },
         { status: 400 }
       );
     }
@@ -159,14 +161,39 @@ export async function POST(request: NextRequest) {
     const whisperResult = result as any;
     const transcript = whisperResult.text || '';
     const segments = whisperResult.chunks || [];
+    const duration = whisperResult.duration || 0;
+    const language = whisperResult.language || 'en';
+
+    // Check if auto-save is requested
+    const { searchParams } = new URL(request.url);
+    const shouldSave = searchParams.get('save') === 'true';
+    let transcriptId: string | undefined;
+
+    if (shouldSave) {
+      try {
+        transcriptId = await saveTranscript(user.userId, {
+          title: `Transcript - ${file.name}`,
+          transcript,
+          audioFileName: file.name,
+          duration,
+          language,
+        });
+        console.log('Transcript auto-saved:', transcriptId);
+      } catch (saveError) {
+        console.error('Failed to auto-save transcript:', saveError);
+        // Continue even if save fails - still return the transcript
+      }
+    }
 
     return NextResponse.json({
       success: true,
       transcript,
+      transcriptId, // Included if auto-saved
       segments,
       metadata: {
-        duration: whisperResult.duration || 0,
-        language: whisperResult.language || 'en',
+        duration,
+        language,
+        audioFileName: file.name,
       }
     });
 

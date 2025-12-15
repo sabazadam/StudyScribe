@@ -15,11 +15,11 @@ export function Header() {
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-oxford-blue/[0.08] shadow-sm backdrop-blur-xl bg-white/90 dark:bg-background-dark/90" role="banner">
-      <div className="max-w-7xl mx-auto px-6 py-4">
+      <div className="max-w-7xl mx-auto px-6 py-5">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group transition-opacity hover:opacity-90 duration-200">
-            <h1 className="text-[22px] font-heading font-bold tracking-tight text-gradient-academic">
+            <h1 className="text-2xl font-heading font-bold tracking-tight text-gradient-academic leading-none">
               CrammingAI
             </h1>
           </Link>
@@ -29,54 +29,66 @@ export function Header() {
             <Link
               href="/hub"
               className={`
-                px-4 py-2 rounded-lg text-[15px] font-medium
+                relative px-4 py-2.5 rounded-lg text-[15px] font-semibold
                 transition-all duration-200
                 ${isActive('/hub')
-                  ? 'bg-primary/[0.08] text-primary'
-                  : 'text-oxford-blue hover:bg-primary/[0.06] hover:text-primary'
+                  ? 'bg-cerulean/10 text-cerulean'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-cerulean'
                 }
               `}
             >
               Study Hub
+              {isActive('/hub') && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-cerulean rounded-full" />
+              )}
             </Link>
             <Link
               href="/transcribe"
               className={`
-                px-4 py-2 rounded-lg text-[15px] font-medium
+                relative px-4 py-2.5 rounded-lg text-[15px] font-semibold
                 transition-all duration-200
                 ${isActive('/transcribe')
-                  ? 'bg-primary/[0.08] text-primary'
-                  : 'text-oxford-blue hover:bg-primary/[0.06] hover:text-primary'
+                  ? 'bg-cerulean/10 text-cerulean'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-cerulean'
                 }
               `}
             >
               Transcribe
+              {isActive('/transcribe') && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-cerulean rounded-full" />
+              )}
             </Link>
             <Link
               href="/exam-generator"
               className={`
-                px-4 py-2 rounded-lg text-[15px] font-medium
+                relative px-4 py-2.5 rounded-lg text-[15px] font-semibold
                 transition-all duration-200
                 ${isActive('/exam-generator')
-                  ? 'bg-primary/[0.08] text-primary'
-                  : 'text-oxford-blue hover:bg-primary/[0.06] hover:text-primary'
+                  ? 'bg-cerulean/10 text-cerulean'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-cerulean'
                 }
               `}
             >
               Mock Exam
+              {isActive('/exam-generator') && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-cerulean rounded-full" />
+              )}
             </Link>
             <Link
               href="/materials"
               className={`
-                px-4 py-2 rounded-lg text-[15px] font-medium
+                relative px-4 py-2.5 rounded-lg text-[15px] font-semibold
                 transition-all duration-200
                 ${isActive('/materials')
-                  ? 'bg-primary/[0.08] text-primary'
-                  : 'text-oxford-blue hover:bg-primary/[0.06] hover:text-primary'
+                  ? 'bg-cerulean/10 text-cerulean'
+                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-cerulean'
                 }
               `}
             >
               For Instructors
+              {isActive('/materials') && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-0.5 bg-cerulean rounded-full" />
+              )}
             </Link>
           </nav>
 
@@ -125,11 +137,11 @@ export function Header() {
                 href="/hub"
                 onClick={() => setMobileMenuOpen(false)}
                 className={`
-                  px-4 py-3 rounded-lg text-[15px] font-medium text-left
+                  px-4 py-3 rounded-lg text-[15px] font-semibold text-left
                   transition-all duration-200
                   ${isActive('/hub')
-                    ? 'bg-primary/[0.08] text-primary'
-                    : 'text-oxford-blue hover:bg-primary/[0.06] hover:text-primary'
+                    ? 'bg-cerulean/10 text-cerulean border-l-4 border-cerulean'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-cerulean'
                   }
                 `}
               >
@@ -139,11 +151,11 @@ export function Header() {
                 href="/transcribe"
                 onClick={() => setMobileMenuOpen(false)}
                 className={`
-                  px-4 py-3 rounded-lg text-[15px] font-medium text-left
+                  px-4 py-3 rounded-lg text-[15px] font-semibold text-left
                   transition-all duration-200
                   ${isActive('/transcribe')
-                    ? 'bg-primary/[0.08] text-primary'
-                    : 'text-oxford-blue hover:bg-primary/[0.06] hover:text-primary'
+                    ? 'bg-cerulean/10 text-cerulean border-l-4 border-cerulean'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-cerulean'
                   }
                 `}
               >
@@ -153,11 +165,11 @@ export function Header() {
                 href="/exam-generator"
                 onClick={() => setMobileMenuOpen(false)}
                 className={`
-                  px-4 py-3 rounded-lg text-[15px] font-medium text-left
+                  px-4 py-3 rounded-lg text-[15px] font-semibold text-left
                   transition-all duration-200
                   ${isActive('/exam-generator')
-                    ? 'bg-primary/[0.08] text-primary'
-                    : 'text-oxford-blue hover:bg-primary/[0.06] hover:text-primary'
+                    ? 'bg-cerulean/10 text-cerulean border-l-4 border-cerulean'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-cerulean'
                   }
                 `}
               >
@@ -167,11 +179,11 @@ export function Header() {
                 href="/materials"
                 onClick={() => setMobileMenuOpen(false)}
                 className={`
-                  px-4 py-3 rounded-lg text-[15px] font-medium text-left
+                  px-4 py-3 rounded-lg text-[15px] font-semibold text-left
                   transition-all duration-200
                   ${isActive('/materials')
-                    ? 'bg-primary/[0.08] text-primary'
-                    : 'text-oxford-blue hover:bg-primary/[0.06] hover:text-primary'
+                    ? 'bg-cerulean/10 text-cerulean border-l-4 border-cerulean'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-cerulean'
                   }
                 `}
               >

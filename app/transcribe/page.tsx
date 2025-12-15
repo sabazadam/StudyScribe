@@ -13,19 +13,47 @@
  * ==============================================================================
  */
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import FolderPicker from '@/components/folders/FolderPicker';
-import { authenticatedPost, authenticatedFormPost } from '@/lib/api/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { authenticatedPost, authenticatedFormPost, authenticatedFetch } from '@/lib/api/client';
+import { useAuth } from '@/components/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
 interface TranscriptionResult {
   transcript: string;
+  transcriptId?: string;
   duration?: number;
   wordCount: number;
   language?: string;
+  audioFileName?: string;
 }
+
+interface SavedTranscript {
+  id: string;
+  title: string;
+  audioFileName: string;
+  duration?: number;
+  wordCount: number;
+  linkedMaterialCount: number;
+  createdAt: string;
+}
+
+// Transcription progress stages
+type TranscriptionStage = 'idle' | 'uploading' | 'converting' | 'transcribing' | 'saving' | 'complete';
+
+// Fun tips to show during transcription
+const TRANSCRIPTION_TIPS = [
+  "🎓 Did you know? Audio transcription accuracy has improved 40% in the last 3 years!",
+  "💡 Tip: Shorter audio files transcribe faster and more accurately.",
+  "📚 Fun fact: The average person speaks about 150 words per minute.",
+  "🎯 Pro tip: Clear audio without background noise produces the best results.",
+  "🧠 Study hack: Re-reading transcripts within 24 hours improves retention by 80%.",
+  "✨ CrammingAI can turn this transcript into flashcards, summaries, and quizzes!",
+  "🎵 Background music in recordings can reduce transcription accuracy.",
+  "📖 Lecture recordings are one of the most effective study resources.",
+  "⚡ Our AI is processing your audio at ~10x real-time speed!",
+  "🌟 Transcripts are searchable - find that perfect quote instantly.",
+];
 
 export default function TranscribePage() {
   const { user } = useAuth();
@@ -37,8 +65,68 @@ export default function TranscribePage() {
   const [transcribing, setTranscribing] = useState(false);
   const [transcriptionResult, setTranscriptionResult] = useState<TranscriptionResult | null>(null);
   const [error, setError] = useState('');
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Progress UI state
+  const [transcriptionStage, setTranscriptionStage] = useState<TranscriptionStage>('idle');
+  const [progress, setProgress] = useState(0);
+  const [currentTip, setCurrentTip] = useState(0);
+
+  // New: Saved transcripts state
+  const [savedTranscripts, setSavedTranscripts] = useState<SavedTranscript[]>([]);
+  const [loadingTranscripts, setLoadingTranscripts] = useState(false);
+  const [autoSave, setAutoSave] = useState(true);
+
+  // Rotate tips during transcription
+  useEffect(() => {
+    if (!transcribing) return;
+    const interval = setInterval(() => {
+      setCurrentTip(prev => (prev + 1) % TRANSCRIPTION_TIPS.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [transcribing]);
+
+  // Animate progress bar during transcription
+  useEffect(() => {
+    if (!transcribing) {
+      setProgress(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setProgress(prev => {
+        // Slow down as we approach 90% (never reach 100 until done)
+        if (prev < 30) return prev + 2;
+        if (prev < 60) return prev + 1;
+        if (prev < 85) return prev + 0.5;
+        return prev + 0.1;
+      });
+    }, 300);
+    return () => clearInterval(interval);
+  }, [transcribing]);
+
+  // Load saved transcripts on mount
+  useEffect(() => {
+    if (user) {
+      loadSavedTranscripts();
+    }
+  }, [user]);
+
+  const loadSavedTranscripts = async () => {
+    setLoadingTranscripts(true);
+    try {
+      const response = await authenticatedFetch('/api/transcripts?limit=10');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSavedTranscripts(data.data.transcripts || []);
+        }
+      }
+    } catch (err) {
+      console.error('Error loading transcripts:', err);
+    } finally {
+      setLoadingTranscripts(false);
+    }
+  };
 
   // Supported file types
   const SUPPORTED_FORMATS = [
@@ -82,33 +170,52 @@ export default function TranscribePage() {
 
     setTranscribing(true);
     setError('');
+    setTranscriptionStage('uploading');
+    setProgress(0);
 
     try {
       const formData = new FormData();
       formData.append('audio', file);
 
-      const response = await authenticatedFormPost('/api/transcribe', formData);
+      // Update stage to transcribing after a brief moment
+      setTimeout(() => setTranscriptionStage('transcribing'), 1500);
+
+      // Add auto-save query parameter if enabled
+      const url = autoSave ? '/api/transcribe?save=true' : '/api/transcribe';
+      const response = await authenticatedFormPost(url, formData);
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Transcription failed');
       }
 
+      setTranscriptionStage('saving');
       const data = await response.json();
 
       if (data.transcript) {
+        setProgress(100);
+        setTranscriptionStage('complete');
+
         setTranscriptionResult({
           transcript: data.transcript,
-          duration: data.duration,
+          transcriptId: data.transcriptId,
+          duration: data.metadata?.duration,
           wordCount: data.transcript.split(/\s+/).length,
-          language: data.language,
+          language: data.metadata?.language,
+          audioFileName: data.metadata?.audioFileName || file.name,
         });
+
+        // Refresh saved transcripts if auto-saved
+        if (data.transcriptId) {
+          loadSavedTranscripts();
+        }
       } else {
         throw new Error('No transcript received');
       }
     } catch (err: any) {
       console.error('Transcription error:', err);
       setError(err.message || 'Failed to transcribe audio');
+      setTranscriptionStage('idle');
     } finally {
       setTranscribing(false);
     }
@@ -128,21 +235,26 @@ export default function TranscribePage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSaveToMaterials = async () => {
+  // Save transcript to transcripts collection (NOT study materials)
+  const handleSaveTranscript = async () => {
     if (!transcriptionResult || !user) return;
+
+    // If already auto-saved, just refresh the list
+    if (transcriptionResult.transcriptId) {
+      loadSavedTranscripts();
+      return;
+    }
 
     setSaving(true);
     setError('');
 
     try {
-      const response = await authenticatedPost('/api/study-materials', {
+      const response = await authenticatedPost('/api/transcripts', {
         title: `Transcript - ${file?.name || 'Audio File'}`,
-        materialType: 'custom',
-        content: `# Transcript\n\n${transcriptionResult.transcript}`,
-        sources: {
-          transcript: transcriptionResult.transcript,
-        },
-        folderId: selectedFolderId,
+        transcript: transcriptionResult.transcript,
+        audioFileName: transcriptionResult.audioFileName || file?.name || 'audio',
+        duration: transcriptionResult.duration,
+        language: transcriptionResult.language,
       });
 
       if (!response.ok) {
@@ -152,9 +264,13 @@ export default function TranscribePage() {
 
       const data = await response.json();
 
-      // Navigate to the saved material
-      if (data.data?.materialId) {
-        router.push(`/hub`);
+      // Update the transcription result with the new ID
+      if (data.data?.transcriptId) {
+        setTranscriptionResult({
+          ...transcriptionResult,
+          transcriptId: data.data.transcriptId,
+        });
+        loadSavedTranscripts();
       }
     } catch (err: any) {
       console.error('Save error:', err);
@@ -245,25 +361,96 @@ export default function TranscribePage() {
                 )}
               </div>
 
-              {/* Transcribe Button */}
+              {/* Auto-Save Toggle */}
               {file && !transcriptionResult && (
+                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">save</span>
+                    <span className="text-sm font-medium text-oxford-blue dark:text-text-dark">
+                      Auto-save transcript
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setAutoSave(!autoSave)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoSave ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoSave ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                    />
+                  </button>
+                </div>
+              )}
+
+              {/* Transcribe Button */}
+              {file && !transcriptionResult && !transcribing && (
                 <button
                   onClick={handleTranscribe}
                   disabled={transcribing || !user}
                   className="w-full btn-primary py-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {transcribing ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      <span>Transcribing...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="material-symbols-outlined">mic</span>
-                      <span>Start Transcription</span>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="material-symbols-outlined">mic</span>
+                    <span>Start Transcription</span>
+                  </div>
                 </button>
+              )}
+
+              {/* Transcription Progress UI */}
+              {transcribing && (
+                <div className="space-y-4">
+                  {/* Progress Card */}
+                  <div className="bg-gradient-to-br from-cerulean/5 to-primary/5 dark:from-cerulean/10 dark:to-primary/10 rounded-xl p-6 border border-cerulean/20">
+                    {/* Status Header */}
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="relative">
+                        <div className="w-10 h-10 rounded-full bg-cerulean/20 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-cerulean animate-pulse">
+                            {transcriptionStage === 'uploading' && 'cloud_upload'}
+                            {transcriptionStage === 'converting' && 'sync'}
+                            {transcriptionStage === 'transcribing' && 'hearing'}
+                            {transcriptionStage === 'saving' && 'save'}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="font-semibold text-oxford-blue dark:text-text-dark">
+                          {transcriptionStage === 'uploading' && '📤 Uploading audio...'}
+                          {transcriptionStage === 'converting' && '🔄 Converting audio format...'}
+                          {transcriptionStage === 'transcribing' && '🎧 AI is transcribing...'}
+                          {transcriptionStage === 'saving' && '💾 Finalizing...'}
+                        </p>
+                        <p className="text-sm text-text-muted dark:text-text-dark-muted">
+                          {transcriptionStage === 'uploading' && 'Sending your file to our servers'}
+                          {transcriptionStage === 'converting' && 'Optimizing audio for best results'}
+                          {transcriptionStage === 'transcribing' && 'This may take a moment depending on file length'}
+                          {transcriptionStage === 'saving' && 'Almost done!'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="relative h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-cerulean to-primary rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${Math.min(progress, 100)}%` }}
+                      />
+                      {/* Shimmer effect */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+                    </div>
+                    <p className="text-right text-sm text-text-muted dark:text-text-dark-muted mt-2">
+                      {Math.round(progress)}%
+                    </p>
+                  </div>
+
+                  {/* Tips Card */}
+                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 border border-amber-200/50 dark:border-amber-800/50">
+                    <p className="text-amber-800 dark:text-amber-200 text-sm transition-opacity duration-500">
+                      {TRANSCRIPTION_TIPS[currentTip]}
+                    </p>
+                  </div>
+                </div>
               )}
 
               {!user && (
@@ -330,38 +517,39 @@ export default function TranscribePage() {
                     </div>
                   </div>
 
-                  {/* Save to Materials */}
+                  {/* Actions */}
                   <div className="border-t border-border-light dark:border-border-dark pt-4">
-                    <h4 className="text-sm font-medium text-oxford-blue dark:text-text-dark mb-2">
-                      Save to Study Materials
-                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {/* Save Transcript Button */}
+                      {!transcriptionResult.transcriptId && (
+                        <button
+                          onClick={handleSaveTranscript}
+                          disabled={saving || !user}
+                          className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {saving ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              <span>Saving...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined text-sm">save</span>
+                              <span>Save Transcript</span>
+                            </>
+                          )}
+                        </button>
+                      )}
 
-                    <FolderPicker
-                      selectedFolderId={selectedFolderId}
-                      onSelectFolder={setSelectedFolderId}
-                      label="Select Folder (Optional)"
-                      placeholder="No folder (save to main hub)"
-                    />
+                      {/* Already Saved Badge */}
+                      {transcriptionResult.transcriptId && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg">
+                          <span className="material-symbols-outlined text-sm">check_circle</span>
+                          <span className="text-sm font-medium">Saved to Transcripts</span>
+                        </div>
+                      )}
 
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={handleSaveToMaterials}
-                        disabled={saving || !user}
-                        className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {saving ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            <span>Saving...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="material-symbols-outlined text-sm">save</span>
-                            <span>Save to Hub</span>
-                          </>
-                        )}
-                      </button>
-
+                      {/* Generate Study Material Button */}
                       <button
                         onClick={handleCreateMaterial}
                         className="btn-secondary flex items-center gap-2"
@@ -376,6 +564,67 @@ export default function TranscribePage() {
             </div>
           )}
         </div>
+
+        {/* Saved Transcripts Section */}
+        {user && savedTranscripts.length > 0 && (
+          <div className="card-elevated glass p-6 mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-heading font-bold text-oxford-blue dark:text-text-dark flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">folder_open</span>
+                My Transcripts
+              </h2>
+              <span className="text-sm text-text-muted dark:text-text-dark-muted">
+                {savedTranscripts.length} saved
+              </span>
+            </div>
+
+            {loadingTranscripts ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {savedTranscripts.map((transcript) => (
+                  <div
+                    key={transcript.id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-oxford-blue dark:text-text-dark truncate">
+                        {transcript.title}
+                      </p>
+                      <div className="flex items-center gap-3 text-xs text-text-muted dark:text-text-dark-muted mt-1">
+                        <span>{transcript.wordCount.toLocaleString()} words</span>
+                        {transcript.duration && (
+                          <span>{Math.round(transcript.duration)}s</span>
+                        )}
+                        {transcript.linkedMaterialCount > 0 && (
+                          <span className="bg-cerulean/10 text-cerulean px-2 py-0.5 rounded-full">
+                            {transcript.linkedMaterialCount} material{transcript.linkedMaterialCount > 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => {
+                          // Use this transcript for material creation
+                          sessionStorage.setItem('transcriptContent', transcript.title);
+                          sessionStorage.setItem('transcriptId', transcript.id);
+                          router.push('/create?from=transcript');
+                        }}
+                        className="p-2 rounded-lg hover:bg-primary/10 text-primary transition-colors"
+                        title="Use for material creation"
+                      >
+                        <span className="material-symbols-outlined text-lg">auto_awesome</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </Layout>
   );

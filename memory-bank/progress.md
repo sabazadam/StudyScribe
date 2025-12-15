@@ -27,7 +27,7 @@
 - [ ] Install core dependencies (TypeScript, Tailwind CSS)
 - [ ] Configure Tailwind with custom theme
 - [ ] Set up TypeScript configuration
-- [ ] Create basic folder structure
+- [x] Create basic folder structure
 - [ ] Configure Next.js settings
 
 ### Phase 2: Design System

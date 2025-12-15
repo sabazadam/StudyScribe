@@ -13,21 +13,21 @@ if (!admin.apps.length) {
   try {
     // For local development, use environment variables
     // For production, use service account JSON
-    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY
-      ? process.env.FIREBASE_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n')
+    const privateKey = process.env.FB_ADMIN_PRIVATE_KEY
+      ? process.env.FB_ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n')
       : undefined;
 
     const credential = privateKey
       ? admin.credential.cert({
-          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-          privateKey,
-        })
+        projectId: process.env.NEXT_PUBLIC_FB_PROJECT_ID,
+        clientEmail: process.env.FB_ADMIN_CLIENT_EMAIL,
+        privateKey,
+      })
       : admin.credential.applicationDefault();
 
     admin.initializeApp({
       credential,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      projectId: process.env.NEXT_PUBLIC_FB_PROJECT_ID,
     });
 
     console.log('[Firebase Admin] Admin SDK initialized successfully');
@@ -45,8 +45,8 @@ export default admin;
 
 // Export config info for debugging (remove sensitive data)
 export const getAdminConfigInfo = () => ({
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  hasPrivateKey: Boolean(process.env.FIREBASE_ADMIN_PRIVATE_KEY),
-  hasClientEmail: Boolean(process.env.FIREBASE_ADMIN_CLIENT_EMAIL),
+  projectId: process.env.NEXT_PUBLIC_FB_PROJECT_ID,
+  hasPrivateKey: Boolean(process.env.FB_ADMIN_PRIVATE_KEY),
+  hasClientEmail: Boolean(process.env.FB_ADMIN_CLIENT_EMAIL),
   isConfigured: admin.apps.length > 0,
 });

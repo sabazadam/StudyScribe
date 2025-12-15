@@ -72,6 +72,47 @@ export interface Material {
 }
 
 /**
+ * Lightweight material for list views (excludes heavy content)
+ * Used for Study Hub to reduce data transfer
+ */
+export interface MaterialListItem {
+  id: string;
+  userId: string;
+  title: string;
+  materialType: MaterialType;
+  createdAt: string;
+  updatedAt: string;
+  folderId?: string | null;
+  folderPath?: string[];
+  tags?: string[];
+  // Computed metadata for display
+  hasImages: boolean;
+  hasTranscript: boolean;
+  hasSlides: boolean;
+}
+
+/**
+ * Image stored in Firebase Storage (new optimized format)
+ */
+export interface MaterialStorageImage {
+  url: string;           // Firebase Storage URL
+  storagePath: string;   // Path in storage bucket
+  prompt?: string;       // Original prompt/description
+  mimeType?: string;
+}
+
+/**
+ * Paginated response for list queries
+ */
+export interface PaginatedMaterialList {
+  materials: MaterialListItem[];
+  nextCursor?: string;   // For pagination (last document ID)
+  hasMore: boolean;
+  totalCount?: number;   // Optional total count
+}
+
+
+/**
  * Quiz question structure
  */
 export interface QuizQuestion {
@@ -274,6 +315,80 @@ export function isFolderDocument(data: any): data is FolderDocument {
  * Helper to convert FolderDocument to Folder (client-safe)
  */
 export function folderDocumentToFolder(doc: FolderDocument): Folder {
+  return {
+    ...doc,
+    createdAt: timestampToISO(doc.createdAt),
+    updatedAt: timestampToISO(doc.updatedAt),
+  };
+}
+
+// ============================================================================
+// TRANSCRIPT TYPES
+// ============================================================================
+
+/**
+ * Transcript document stored in Firestore
+ * Collection: transcripts/{transcriptId}
+ */
+export interface TranscriptDocument {
+  id: string;
+  userId: string;
+  title: string;
+  transcript: string;
+  audioFileName: string;
+  duration?: number;
+  wordCount: number;
+  language?: string;
+  linkedMaterialIds: string[];  // Materials that use this transcript
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+/**
+ * Client-side transcript type (with serialized timestamps)
+ */
+export interface Transcript {
+  id: string;
+  userId: string;
+  title: string;
+  transcript: string;
+  audioFileName: string;
+  duration?: number;
+  wordCount: number;
+  language?: string;
+  linkedMaterialIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Lightweight transcript for list views
+ */
+export interface TranscriptListItem {
+  id: string;
+  title: string;
+  audioFileName: string;
+  duration?: number;
+  wordCount: number;
+  linkedMaterialCount: number;
+  createdAt: string;
+}
+
+/**
+ * Input for creating a new transcript
+ */
+export interface CreateTranscriptInput {
+  title: string;
+  transcript: string;
+  audioFileName: string;
+  duration?: number;
+  language?: string;
+}
+
+/**
+ * Helper to convert TranscriptDocument to Transcript (client-safe)
+ */
+export function transcriptDocumentToTranscript(doc: TranscriptDocument): Transcript {
   return {
     ...doc,
     createdAt: timestampToISO(doc.createdAt),

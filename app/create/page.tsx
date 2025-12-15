@@ -14,12 +14,12 @@ import CreateAnotherModal from '@/components/ui/CreateAnotherModal';
 import TranscriptModal from '@/components/ui/TranscriptModal';
 import StepIndicator from '@/components/ui/StepIndicator';
 import Tabs from '@/components/ui/Tabs';
-import ModelSelector from '@/components/ModelSelector';
+import ModelSelector from '@/components/ui/ModelSelector';
 import FolderPicker from '@/components/folders/FolderPicker';
 import { fileToBase64, extractSlideContent, analyzeImageContent, getLastExtractionErrors, clearExtractionErrors } from '@/lib/fileProcessing';
 import { type ModelTier } from '@/lib/models';
 import { setSessionItem, clearSession } from '@/lib/storage';
-import type { GenerateMaterialsResponse, GenerateQuizResponse, ExtractSlidesResponse, TranscribeAudioResponse } from '@/types/api';
+import type { GenerateMaterialsResponse, GenerateQuizResponse, ExtractSlidesResponse, TranscribeAudioResponse } from '@/lib/types/api';
 import { authenticatedFormPost, authenticatedPost } from '@/lib/api/client';
 import UserMenu from '@/components/auth/UserMenu';
 
@@ -96,29 +96,39 @@ export default function CreateMaterialsPage() {
   const [showCreateAnother, setShowCreateAnother] = useState(false);
   const [showTranscript, setShowTranscript] = useState(false);
 
+  // Track if transcript was loaded from external source (transcribe page)
+  const [hasTranscriptFromExternal, setHasTranscriptFromExternal] = useState(false);
+  const [externalTranscriptSource, setExternalTranscriptSource] = useState<string>('');
+
   // Check for transcript from transcribe page
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.get('from') === 'transcript') {
       const transcript = sessionStorage.getItem('transcriptContent');
       const source = sessionStorage.getItem('transcriptSource');
+      const transcriptId = sessionStorage.getItem('transcriptId');
 
       if (transcript) {
-        // Set the transcript and move to step 2
+        // Set the transcript but stay on step 1 for optional slide upload
         setGeneratedTranscript(transcript);
         setCachedExtraction({
           transcript,
           slideText: '',
           imageAnalysis: '',
         });
-        setCurrentStep(2);
+        setHasTranscriptFromExternal(true);
+        setExternalTranscriptSource(source || 'Audio File');
+
+        // Stay on step 1, don't skip - user might want to add slides
+        // setCurrentStep(2); // REMOVED - let user optionally add slides
 
         // Clear from sessionStorage
         sessionStorage.removeItem('transcriptContent');
         sessionStorage.removeItem('transcriptSource');
+        sessionStorage.removeItem('transcriptId');
 
         // Show a success message
-        console.log(`Loaded transcript from: ${source || 'audio file'}`);
+        console.log(`Loaded transcript from: ${source || 'audio file'}`, transcriptId ? `(ID: ${transcriptId})` : '');
       }
     }
   }, []);
@@ -186,8 +196,8 @@ export default function CreateMaterialsPage() {
   const loadMaterialFiles = async () => {
     const material = materials.find(
       m => m.instructorName === selectedInstructor &&
-           m.week === selectedWeek &&
-           m.lectureNumber === selectedLecture
+        m.week === selectedWeek &&
+        m.lectureNumber === selectedLecture
     );
 
     if (!material) return;
@@ -964,114 +974,135 @@ export default function CreateMaterialsPage() {
 
   return (
     <AuthGuard>
-    <div className="min-h-screen bg-mesh-academic dark:bg-mesh-academic-dark texture-noise">
-      {/* Header */}
-      <header className="glass dark:glass-dark border-b border-border-light dark:border-border-dark sticky top-0 z-50 shadow-sm backdrop-blur-lg" role="banner">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/">
-              <h1 className="text-2xl font-heading font-bold text-gradient-academic cursor-pointer hover:opacity-80 transition-opacity">
-                CrammingAI
-              </h1>
-            </Link>
-            <nav aria-label="Main navigation">
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/materials"
-                  className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2 font-semibold"
-                  aria-label="Upload course materials (for instructors)"
-                >
-                  <span className="material-symbols-outlined text-sm" aria-hidden="true">upload</span>
-                  <span className="hidden md:inline">Instructors: Upload Materials</span>
-                  <span className="md:hidden">Upload</span>
-                </Link>
-                <Link
-                  href="/hub"
-                  className="px-4 py-2 bg-accent hover:bg-accent-dark text-midnight-blue rounded-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2 font-semibold"
-                  aria-label="View your study hub"
-                >
-                  <span className="material-symbols-outlined text-sm" aria-hidden="true">folder</span>
-                  <span className="hidden md:inline">Study Hub</span>
-                  <span className="md:hidden">Hub</span>
-                </Link>
-                <UserMenu />
-              </div>
-            </nav>
+      <div className="min-h-screen bg-mesh-academic dark:bg-mesh-academic-dark texture-noise">
+        {/* Header */}
+        <header className="glass dark:glass-dark border-b border-border-light dark:border-border-dark sticky top-0 z-50 shadow-sm backdrop-blur-lg" role="banner">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <Link href="/">
+                <h1 className="text-2xl font-heading font-bold text-gradient-academic cursor-pointer hover:opacity-80 transition-opacity">
+                  CrammingAI
+                </h1>
+              </Link>
+              <nav aria-label="Main navigation">
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/materials"
+                    className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2 font-semibold"
+                    aria-label="Upload course materials (for instructors)"
+                  >
+                    <span className="material-symbols-outlined text-sm" aria-hidden="true">upload</span>
+                    <span className="hidden md:inline">Instructors: Upload Materials</span>
+                    <span className="md:hidden">Upload</span>
+                  </Link>
+                  <Link
+                    href="/hub"
+                    className="px-4 py-2 bg-accent hover:bg-accent-dark text-midnight-blue rounded-lg transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center gap-2 font-semibold"
+                    aria-label="View your study hub"
+                  >
+                    <span className="material-symbols-outlined text-sm" aria-hidden="true">folder</span>
+                    <span className="hidden md:inline">Study Hub</span>
+                    <span className="md:hidden">Hub</span>
+                  </Link>
+                  <UserMenu />
+                </div>
+              </nav>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main id="main-content" className="container mx-auto px-4 py-8" role="main">
-        <div className="max-w-5xl mx-auto">
-          {/* Progress Indicator */}
-          <StepIndicator
-            currentStep={currentStep}
-            steps={[
-              {
-                number: 1,
-                label: 'Upload Materials',
-                icon: 'cloud_upload',
-                description: 'Add your lecture files'
-              },
-              {
-                number: 2,
-                label: 'Choose Type',
-                icon: 'category',
-                description: 'Select study material type'
-              },
-              {
-                number: 3,
-                label: 'Processing',
-                icon: 'autorenew',
-                description: 'AI generates content'
-              },
-              {
-                number: 4,
-                label: 'Results',
-                icon: 'task_alt',
-                description: 'Review and save'
-              }
-            ]}
-            allowNavigation={false}
-          />
-
-          {/* Step 1: File Upload */}
-          {currentStep === 1 && (
-          <>
-          <div className="bg-card-light dark:bg-card-dark rounded-2xl shadow-lg p-8 mb-8 card animate-slide-up">
-            <h3 className="text-2xl font-heading font-bold text-oxford-blue dark:text-text-dark mb-6 flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">cloud_upload</span>
-              Add Your Lecture Materials
-            </h3>
-
-            <Tabs
-              defaultTab="manual"
-              tabs={[
+        <main id="main-content" className="container mx-auto px-4 py-8" role="main">
+          <div className="max-w-5xl mx-auto">
+            {/* Progress Indicator */}
+            <StepIndicator
+              currentStep={currentStep}
+              steps={[
                 {
-                  id: 'manual',
-                  label: 'Upload Files',
-                  icon: 'upload_file',
-                  badge: 'Recommended',
-                  content: (
+                  number: 1,
+                  label: 'Upload Materials',
+                  icon: 'cloud_upload',
+                  description: 'Add your lecture files'
+                },
+                {
+                  number: 2,
+                  label: 'Choose Type',
+                  icon: 'category',
+                  description: 'Select study material type'
+                },
+                {
+                  number: 3,
+                  label: 'Processing',
+                  icon: 'autorenew',
+                  description: 'AI generates content'
+                },
+                {
+                  number: 4,
+                  label: 'Results',
+                  icon: 'task_alt',
+                  description: 'Review and save'
+                }
+              ]}
+              allowNavigation={false}
+            />
+
+            {/* Step 1: File Upload */}
+            {currentStep === 1 && (
+              <>
+                {/* Transcript Loaded Banner - Show when coming from transcribe page */}
+                {hasTranscriptFromExternal && (
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-6 mb-6 animate-slide-up">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 w-12 h-12 bg-green-100 dark:bg-green-800/50 rounded-full flex items-center justify-center">
+                        <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-2xl">check_circle</span>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-green-800 dark:text-green-200 mb-1">
+                          ✨ Transcript Loaded Successfully!
+                        </h3>
+                        <p className="text-green-700 dark:text-green-300 text-sm mb-3">
+                          From: <span className="font-medium">{externalTranscriptSource}</span>
+                          {' • '}{generatedTranscript.split(/\s+/).length.toLocaleString()} words
+                        </p>
+                        <p className="text-green-700 dark:text-green-300 text-sm mb-4">
+                          You can optionally add slides/photos below for richer materials, or skip straight to generation.
+                        </p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setCurrentStep(2)}
+                            className="btn-primary px-6 py-2 text-sm"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-lg">skip_next</span>
+                              Continue Without Slides
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => setShowTranscript(true)}
+                            className="btn-secondary px-4 py-2 text-sm"
+                          >
+                            <span className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-lg">visibility</span>
+                              Preview Transcript
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-card-light dark:bg-card-dark rounded-2xl shadow-lg p-8 mb-8 card animate-slide-up">
+                  <h3 className="text-2xl font-heading font-bold text-oxford-blue dark:text-text-dark mb-6 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary">cloud_upload</span>
+                    {hasTranscriptFromExternal ? 'Add Slides (Optional)' : 'Add Your Lecture Materials'}
+                  </h3>
+
+                  {hasTranscriptFromExternal ? (
+                    /* Simplified upload when transcript already loaded */
                     <div className="space-y-6 animate-fade-in">
                       <p className="text-text-muted dark:text-text-dark-muted mb-4">
-                        Upload your own lecture files for personalized study materials
+                        Optionally add slides or photos to enhance your study materials, or continue without them.
                       </p>
-
-                      {/* Audio/Video Upload */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <span className="material-symbols-outlined text-cerulean">videocam</span>
-                          <h4 className="text-lg font-semibold text-oxford-blue dark:text-text-dark">Audio/Video Recording</h4>
-                          <span className="badge badge-primary">
-                            Recommended
-                          </span>
-                        </div>
-                        <p className="text-sm text-text-muted dark:text-text-dark-muted mb-2">
-                          Upload lecture recording for AI transcription and analysis
-                        </p>
-                        <FileUploader onFileSelect={setAudioFile} />
-                      </div>
 
                       {/* Slides Upload */}
                       <div>
@@ -1102,324 +1133,397 @@ export default function CreateMaterialsPage() {
                         </p>
                         <ImageUploader onImagesSelect={setPhotoFiles} />
                       </div>
-                    </div>
-                  )
-                },
-                {
-                  id: 'instructor',
-                  label: 'Instructor Materials',
-                  icon: 'school',
-                  content: (
-                    <div className="space-y-4 animate-fade-in">
-                      <p className="text-text-muted dark:text-text-dark-muted mb-4">
-                        Use materials already uploaded by your instructor for this course
-                      </p>
 
-                      <div className="bg-info/5 border border-info/20 rounded-lg p-4 mb-4">
-                        <h4 className="font-semibold text-oxford-blue dark:text-text-dark mb-2 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-info">info</span>
-                          Benefits of Instructor Materials
-                        </h4>
-                        <ul className="text-sm text-text-muted dark:text-text-dark-muted space-y-1 ml-6 list-disc">
-                          <li>Save time - materials are already organized</li>
-                          <li>Access official course content</li>
-                          <li>Consistent with class materials</li>
-                        </ul>
-                      </div>
-
-                      {/* Instructor Selection */}
-                      <div>
-                        <label className="block text-sm font-semibold text-oxford-blue dark:text-text-dark mb-2">
-                          1. Select Instructor
-                        </label>
-                        <select
-                          value={selectedInstructor}
-                          onChange={(e) => {
-                            setSelectedInstructor(e.target.value);
-                            setSelectedWeek(null);
-                            setSelectedLecture(null);
-                            setUsePreUploaded(true);
-                          }}
-                          className="w-full px-4 py-3 border-2 border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background dark:bg-card-dark text-oxford-blue dark:text-text-dark"
+                      {/* Continue Button */}
+                      <div className="flex justify-center pt-4">
+                        <button
+                          onClick={() => setCurrentStep(2)}
+                          className="btn-primary px-8 py-3"
                         >
-                          <option value="">Choose an instructor...</option>
-                          {instructors.map((name) => (
-                            <option key={name} value={name}>{name}</option>
-                          ))}
-                        </select>
+                          <span className="flex items-center gap-2">
+                            Continue to Material Type
+                            <span className="material-symbols-outlined">arrow_forward</span>
+                          </span>
+                        </button>
                       </div>
-
-                      {/* Week Selection */}
-                      {selectedInstructor && (
-                        <div className="animate-slide-up">
-                          <label className="block text-sm font-semibold text-oxford-blue dark:text-text-dark mb-2">
-                            2. Select Week
-                          </label>
-                          <select
-                            value={selectedWeek ?? ''}
-                            onChange={(e) => {
-                              setSelectedWeek(Number(e.target.value));
-                              setSelectedLecture(null);
-                            }}
-                            className="w-full px-4 py-3 border-2 border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background dark:bg-card-dark text-oxford-blue dark:text-text-dark"
-                          >
-                            <option value="">Choose a week...</option>
-                            {availableWeeks.map((week) => (
-                              <option key={week} value={week}>Week {week}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {/* Lecture Selection */}
-                      {selectedWeek !== null && (
-                        <div className="animate-slide-up">
-                          <label className="block text-sm font-semibold text-oxford-blue dark:text-text-dark mb-2">
-                            3. Select Lecture
-                          </label>
-                          <select
-                            value={selectedLecture ?? ''}
-                            onChange={(e) => setSelectedLecture(Number(e.target.value))}
-                            className="w-full px-4 py-3 border-2 border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background dark:bg-card-dark text-oxford-blue dark:text-text-dark"
-                          >
-                            <option value="">Choose a lecture...</option>
-                            {availableLectures.map((lecture) => (
-                              <option key={lecture} value={lecture}>Lecture {lecture}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-
-                      {selectedLecture !== null && (
-                        <div className="bg-success/10 border border-success/30 rounded-lg p-4 mt-4 animate-success-pop">
-                          <p className="text-success-dark dark:text-success flex items-center gap-2 font-semibold">
-                            <span className="material-symbols-outlined">check_circle</span>
-                            Materials loaded successfully!
-                          </p>
-                        </div>
-                      )}
                     </div>
-                  )
-                }
-              ]}
-            />
+                  ) : (
+                    <Tabs
+                      defaultTab="manual"
+                      tabs={[
+                        {
+                          id: 'manual',
+                          label: 'Upload Files',
+                          icon: 'upload_file',
+                          badge: 'Recommended',
+                          content: (
+                            <div className="space-y-6 animate-fade-in">
+                              <p className="text-text-muted dark:text-text-dark-muted mb-4">
+                                Upload your own lecture files for personalized study materials
+                              </p>
 
-          </div>
+                              {/* Audio/Video Upload */}
+                              <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className="material-symbols-outlined text-cerulean">videocam</span>
+                                  <h4 className="text-lg font-semibold text-oxford-blue dark:text-text-dark">Audio/Video Recording</h4>
+                                  <span className="badge badge-primary">
+                                    Recommended
+                                  </span>
+                                </div>
+                                <p className="text-sm text-text-muted dark:text-text-dark-muted mb-2">
+                                  Upload lecture recording for AI transcription and analysis
+                                </p>
+                                <FileUploader onFileSelect={setAudioFile} />
+                              </div>
 
-          {/* Continue Button */}
-          <div className="mt-6">
-            <button
-              onClick={handleContinue}
-              disabled={!audioFile && slideFiles.length === 0 && photoFiles.length === 0 && selectedLecture === null}
-              className="w-full btn-primary text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              aria-label="Continue to material type selection"
-              aria-disabled={!audioFile && slideFiles.length === 0 && photoFiles.length === 0 && selectedLecture === null}
-            >
-              <span>Continue to Select Material Type</span>
-              <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
-            </button>
-            {!audioFile && slideFiles.length === 0 && photoFiles.length === 0 && selectedLecture === null && (
-              <p className="text-sm text-text-muted dark:text-text-dark-muted text-center mt-3" role="status" aria-live="polite">
-                Please upload files or select instructor materials to continue
-              </p>
+                              {/* Slides Upload */}
+                              <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className="material-symbols-outlined text-accent">description</span>
+                                  <h4 className="text-lg font-semibold text-oxford-blue dark:text-text-dark">Lecture Slides</h4>
+                                  <span className="px-2 py-0.5 bg-background text-text-muted text-xs rounded-full font-medium border border-border-light">
+                                    Optional
+                                  </span>
+                                </div>
+                                <p className="text-sm text-text-muted dark:text-text-dark-muted mb-2">
+                                  Add slides for better context and comprehensive materials
+                                </p>
+                                <SlideUploader onFilesSelect={setSlideFiles} />
+                              </div>
+
+                              {/* Photos Upload */}
+                              <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                  <span className="material-symbols-outlined text-success">image</span>
+                                  <h4 className="text-lg font-semibold text-oxford-blue dark:text-text-dark">Lecture Photos</h4>
+                                  <span className="px-2 py-0.5 bg-background text-text-muted text-xs rounded-full font-medium border border-border-light">
+                                    Optional
+                                  </span>
+                                </div>
+                                <p className="text-sm text-text-muted dark:text-text-dark-muted mb-2">
+                                  Include whiteboard photos or diagrams for visual learning
+                                </p>
+                                <ImageUploader onImagesSelect={setPhotoFiles} />
+                              </div>
+                            </div>
+                          )
+                        },
+                        {
+                          id: 'instructor',
+                          label: 'Instructor Materials',
+                          icon: 'school',
+                          content: (
+                            <div className="space-y-4 animate-fade-in">
+                              <p className="text-text-muted dark:text-text-dark-muted mb-4">
+                                Use materials already uploaded by your instructor for this course
+                              </p>
+
+                              <div className="bg-info/5 border border-info/20 rounded-lg p-4 mb-4">
+                                <h4 className="font-semibold text-oxford-blue dark:text-text-dark mb-2 flex items-center gap-2">
+                                  <span className="material-symbols-outlined text-info">info</span>
+                                  Benefits of Instructor Materials
+                                </h4>
+                                <ul className="text-sm text-text-muted dark:text-text-dark-muted space-y-1 ml-6 list-disc">
+                                  <li>Save time - materials are already organized</li>
+                                  <li>Access official course content</li>
+                                  <li>Consistent with class materials</li>
+                                </ul>
+                              </div>
+
+                              {/* Instructor Selection */}
+                              <div>
+                                <label className="block text-sm font-semibold text-oxford-blue dark:text-text-dark mb-2">
+                                  1. Select Instructor
+                                </label>
+                                <select
+                                  value={selectedInstructor}
+                                  onChange={(e) => {
+                                    setSelectedInstructor(e.target.value);
+                                    setSelectedWeek(null);
+                                    setSelectedLecture(null);
+                                    setUsePreUploaded(true);
+                                  }}
+                                  className="w-full px-4 py-3 border-2 border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background dark:bg-card-dark text-oxford-blue dark:text-text-dark"
+                                >
+                                  <option value="">Choose an instructor...</option>
+                                  {instructors.map((name) => (
+                                    <option key={name} value={name}>{name}</option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Week Selection */}
+                              {selectedInstructor && (
+                                <div className="animate-slide-up">
+                                  <label className="block text-sm font-semibold text-oxford-blue dark:text-text-dark mb-2">
+                                    2. Select Week
+                                  </label>
+                                  <select
+                                    value={selectedWeek ?? ''}
+                                    onChange={(e) => {
+                                      setSelectedWeek(Number(e.target.value));
+                                      setSelectedLecture(null);
+                                    }}
+                                    className="w-full px-4 py-3 border-2 border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background dark:bg-card-dark text-oxford-blue dark:text-text-dark"
+                                  >
+                                    <option value="">Choose a week...</option>
+                                    {availableWeeks.map((week) => (
+                                      <option key={week} value={week}>Week {week}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+
+                              {/* Lecture Selection */}
+                              {selectedWeek !== null && (
+                                <div className="animate-slide-up">
+                                  <label className="block text-sm font-semibold text-oxford-blue dark:text-text-dark mb-2">
+                                    3. Select Lecture
+                                  </label>
+                                  <select
+                                    value={selectedLecture ?? ''}
+                                    onChange={(e) => setSelectedLecture(Number(e.target.value))}
+                                    className="w-full px-4 py-3 border-2 border-border-light dark:border-border-dark rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent bg-background dark:bg-card-dark text-oxford-blue dark:text-text-dark"
+                                  >
+                                    <option value="">Choose a lecture...</option>
+                                    {availableLectures.map((lecture) => (
+                                      <option key={lecture} value={lecture}>Lecture {lecture}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+
+                              {selectedLecture !== null && (
+                                <div className="bg-success/10 border border-success/30 rounded-lg p-4 mt-4 animate-success-pop">
+                                  <p className="text-success-dark dark:text-success flex items-center gap-2 font-semibold">
+                                    <span className="material-symbols-outlined">check_circle</span>
+                                    Materials loaded successfully!
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        }
+                      ]}
+                    />
+                  )}
+                </div>
+
+                {/* Continue Button - Only show for regular flow (not when transcript is pre-loaded) */}
+                {!hasTranscriptFromExternal && (
+                  <div className="mt-6">
+                    <button
+                      onClick={handleContinue}
+                      disabled={!audioFile && slideFiles.length === 0 && photoFiles.length === 0 && selectedLecture === null}
+                      className="w-full btn-primary text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      aria-label="Continue to material type selection"
+                      aria-disabled={!audioFile && slideFiles.length === 0 && photoFiles.length === 0 && selectedLecture === null}
+                    >
+                      <span>Continue to Select Material Type</span>
+                      <span className="material-symbols-outlined" aria-hidden="true">arrow_forward</span>
+                    </button>
+                    {!audioFile && slideFiles.length === 0 && photoFiles.length === 0 && selectedLecture === null && (
+                      <p className="text-sm text-text-muted dark:text-text-dark-muted text-center mt-3" role="status" aria-live="polite">
+                        Please upload files or select instructor materials to continue
+                      </p>
+                    )}
+                  </div>
+                )}
+              </>
             )}
-          </div>
-          </>
-          )}
 
-          {/* Step 2: Material Type Selection */}
-          {currentStep === 2 && (
-            <div className="bg-white dark:bg-card-dark rounded-2xl shadow-lg p-8 mb-8">
-              <h3 className="text-2xl font-bold text-gray-800 dark:text-text-dark mb-6 text-center">
-                What type of study material do you want to create?
-              </h3>
-              <ActionButtons
-                onActionSelect={(action) => {
-                  if (action === 'custom') {
-                    setOutputType(action);
-                  } else {
-                    handleTypeSelection(action);
-                  }
-                }}
-                disabled={isProcessing}
-                loading={isProcessing}
-              />
-
-              {/* Model Selection */}
-              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <ModelSelector
-                  selectedTier={selectedModelTier}
-                  onSelectTier={setSelectedModelTier}
+            {/* Step 2: Material Type Selection */}
+            {currentStep === 2 && (
+              <div className="bg-white dark:bg-card-dark rounded-2xl shadow-lg p-8 mb-8">
+                <h3 className="text-2xl font-bold text-gray-800 dark:text-text-dark mb-6 text-center">
+                  What type of study material do you want to create?
+                </h3>
+                <ActionButtons
+                  onActionSelect={(action) => {
+                    if (action === 'custom') {
+                      setOutputType(action);
+                    } else {
+                      handleTypeSelection(action);
+                    }
+                  }}
+                  disabled={isProcessing}
+                  loading={isProcessing}
                 />
-              </div>
 
-              {/* Image Limit Selection */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex items-start gap-3 mb-4">
-                  <span className="material-symbols-outlined text-primary text-2xl">image</span>
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-gray-800 dark:text-text-dark mb-1">
-                      AI-Generated Diagrams
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Choose how many educational diagrams to generate (powered by Google Imagen 3)
+                {/* Model Selection */}
+                <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <ModelSelector
+                    selectedTier={selectedModelTier}
+                    onSelectTier={setSelectedModelTier}
+                  />
+                </div>
+
+                {/* Image Limit Selection */}
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <div className="flex items-start gap-3 mb-4">
+                    <span className="material-symbols-outlined text-primary text-2xl">image</span>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-gray-800 dark:text-text-dark mb-1">
+                        AI-Generated Diagrams
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Choose how many educational diagrams to generate (powered by Google Imagen 3)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    {[0, 1, 2].map((num) => (
+                      <button
+                        key={num}
+                        onClick={() => setMaxImages(num)}
+                        className={`p-4 rounded-lg border-2 transition-all ${maxImages === num
+                          ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
+                          }`}
+                      >
+                        <div className="text-center">
+                          <div className={`text-2xl font-bold ${maxImages === num ? 'text-primary' : 'text-gray-600 dark:text-gray-400'
+                            }`}>
+                            {num}
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            {num === 0 && 'No images'}
+                            {num === 1 && '1 image'}
+                            {num === 2 && '2 images'}
+                          </div>
+                          {num > 0 && (
+                            <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                              ~${(num * 0.04).toFixed(2)}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-xs text-blue-700 dark:text-blue-400">
+                      💡 Gemini will suggest relevant diagrams for complex concepts. You can approve or skip each one.
                     </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
-                  {[0, 1, 2].map((num) => (
+                {/* Folder Selection */}
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                  <FolderPicker
+                    selectedFolderId={selectedFolderId}
+                    onSelectFolder={setSelectedFolderId}
+                    label="Save to Folder (Optional)"
+                    placeholder="No folder (save to main hub)"
+                  />
+                </div>
+
+                {outputType === 'custom' && (
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Custom Request
+                    </label>
+                    <textarea
+                      value={customPrompt}
+                      onChange={(e) => setCustomPrompt(e.target.value)}
+                      className="w-full h-32 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                      placeholder="e.g., 'Create flashcards focusing on key definitions' or 'Explain this using simple analogies'"
+                    />
                     <button
-                      key={num}
-                      onClick={() => setMaxImages(num)}
-                      className={`p-4 rounded-lg border-2 transition-all ${
-                        maxImages === num
-                          ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-primary/50'
-                      }`}
+                      onClick={handleCustomPromptSubmit}
+                      disabled={isProcessing || !customPrompt.trim()}
+                      className="mt-4 w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
                     >
-                      <div className="text-center">
-                        <div className={`text-2xl font-bold ${
-                          maxImages === num ? 'text-primary' : 'text-gray-600 dark:text-gray-400'
-                        }`}>
-                          {num}
-                        </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                          {num === 0 && 'No images'}
-                          {num === 1 && '1 image'}
-                          {num === 2 && '2 images'}
-                        </div>
-                        {num > 0 && (
-                          <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                            ~${(num * 0.04).toFixed(2)}
-                          </div>
-                        )}
-                      </div>
+                      {isProcessing ? 'Processing...' : 'Generate with Custom Prompt'}
                     </button>
-                  ))}
-                </div>
-
-                <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <p className="text-xs text-blue-700 dark:text-blue-400">
-                    💡 Gemini will suggest relevant diagrams for complex concepts. You can approve or skip each one.
-                  </p>
-                </div>
+                  </div>
+                )}
               </div>
+            )}
 
-              {/* Folder Selection */}
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <FolderPicker
-                  selectedFolderId={selectedFolderId}
-                  onSelectFolder={setSelectedFolderId}
-                  label="Save to Folder (Optional)"
-                  placeholder="No folder (save to main hub)"
+            {/* Step 3: Processing Progress */}
+            {currentStep === 3 && isProcessing && (
+              <div className="mb-8">
+                <ProcessingProgress
+                  tasks={[
+                    {
+                      id: 'transcription',
+                      label: 'Transcribing Audio',
+                      icon: 'videocam',
+                      status: processingSteps.transcription.status === 'idle' ? 'pending' :
+                        processingSteps.transcription.status === 'loading' ? 'processing' :
+                          processingSteps.transcription.status === 'success' ? 'completed' :
+                            processingSteps.transcription.status === 'error' ? 'error' : 'skipped',
+                      message: processingSteps.transcription.message,
+                      color: 'bg-blue-500'
+                    },
+                    {
+                      id: 'slideExtraction',
+                      label: 'Extracting Slides',
+                      icon: 'description',
+                      status: processingSteps.slideExtraction.status === 'idle' ? 'pending' :
+                        processingSteps.slideExtraction.status === 'loading' ? 'processing' :
+                          processingSteps.slideExtraction.status === 'success' ? 'completed' :
+                            processingSteps.slideExtraction.status === 'error' ? 'error' : 'skipped',
+                      message: processingSteps.slideExtraction.message,
+                      color: 'bg-purple-500'
+                    },
+                    {
+                      id: 'imageAnalysis',
+                      label: 'Analyzing Photos',
+                      icon: 'image',
+                      status: processingSteps.imageAnalysis.status === 'idle' ? 'pending' :
+                        processingSteps.imageAnalysis.status === 'loading' ? 'processing' :
+                          processingSteps.imageAnalysis.status === 'success' ? 'completed' :
+                            processingSteps.imageAnalysis.status === 'error' ? 'error' : 'skipped',
+                      message: processingSteps.imageAnalysis.message,
+                      color: 'bg-green-500'
+                    },
+                    {
+                      id: 'materialGeneration',
+                      label: 'Generating Study Materials',
+                      icon: 'auto_awesome',
+                      status: processingSteps.materialGeneration.status === 'idle' ? 'pending' :
+                        processingSteps.materialGeneration.status === 'loading' ? 'processing' :
+                          processingSteps.materialGeneration.status === 'success' ? 'completed' :
+                            processingSteps.materialGeneration.status === 'error' ? 'error' : 'skipped',
+                      message: processingSteps.materialGeneration.message,
+                      color: 'bg-orange-500'
+                    }
+                  ]}
                 />
               </div>
+            )}
 
-              {outputType === 'custom' && (
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Custom Request
-                  </label>
-                  <textarea
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    className="w-full h-32 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
-                    placeholder="e.g., 'Create flashcards focusing on key definitions' or 'Explain this using simple analogies'"
-                  />
-                  <button
-                    onClick={handleCustomPromptSubmit}
-                    disabled={isProcessing || !customPrompt.trim()}
-                    className="mt-4 w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg"
-                  >
-                    {isProcessing ? 'Processing...' : 'Generate with Custom Prompt'}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+                <p className="text-red-800 flex items-center gap-2">
+                  <span className="material-symbols-outlined">error</span>
+                  {error}
+                </p>
+              </div>
+            )}
 
-          {/* Step 3: Processing Progress */}
-          {currentStep === 3 && isProcessing && (
-            <div className="mb-8">
-              <ProcessingProgress
-                tasks={[
-                  {
-                    id: 'transcription',
-                    label: 'Transcribing Audio',
-                    icon: 'videocam',
-                    status: processingSteps.transcription.status === 'idle' ? 'pending' :
-                            processingSteps.transcription.status === 'loading' ? 'processing' :
-                            processingSteps.transcription.status === 'success' ? 'completed' :
-                            processingSteps.transcription.status === 'error' ? 'error' : 'skipped',
-                    message: processingSteps.transcription.message,
-                    color: 'bg-blue-500'
-                  },
-                  {
-                    id: 'slideExtraction',
-                    label: 'Extracting Slides',
-                    icon: 'description',
-                    status: processingSteps.slideExtraction.status === 'idle' ? 'pending' :
-                            processingSteps.slideExtraction.status === 'loading' ? 'processing' :
-                            processingSteps.slideExtraction.status === 'success' ? 'completed' :
-                            processingSteps.slideExtraction.status === 'error' ? 'error' : 'skipped',
-                    message: processingSteps.slideExtraction.message,
-                    color: 'bg-purple-500'
-                  },
-                  {
-                    id: 'imageAnalysis',
-                    label: 'Analyzing Photos',
-                    icon: 'image',
-                    status: processingSteps.imageAnalysis.status === 'idle' ? 'pending' :
-                            processingSteps.imageAnalysis.status === 'loading' ? 'processing' :
-                            processingSteps.imageAnalysis.status === 'success' ? 'completed' :
-                            processingSteps.imageAnalysis.status === 'error' ? 'error' : 'skipped',
-                    message: processingSteps.imageAnalysis.message,
-                    color: 'bg-green-500'
-                  },
-                  {
-                    id: 'materialGeneration',
-                    label: 'Generating Study Materials',
-                    icon: 'auto_awesome',
-                    status: processingSteps.materialGeneration.status === 'idle' ? 'pending' :
-                            processingSteps.materialGeneration.status === 'loading' ? 'processing' :
-                            processingSteps.materialGeneration.status === 'success' ? 'completed' :
-                            processingSteps.materialGeneration.status === 'error' ? 'error' : 'skipped',
-                    message: processingSteps.materialGeneration.message,
-                    color: 'bg-orange-500'
-                  }
-                ]}
-              />
-            </div>
-          )}
+            {/* Step 4: Results - Handled by /results page */}
+          </div>
+        </main>
 
-          {/* Error Display */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
-              <p className="text-red-800 flex items-center gap-2">
-                <span className="material-symbols-outlined">error</span>
-                {error}
-              </p>
-            </div>
-          )}
+        {/* Modals */}
+        <CreateAnotherModal
+          isOpen={showCreateAnother}
+          onClose={() => setShowCreateAnother(false)}
+          onSelectType={handleCreateAnother}
+        />
 
-          {/* Step 4: Results - Handled by /results page */}
-        </div>
-      </main>
-
-      {/* Modals */}
-      <CreateAnotherModal
-        isOpen={showCreateAnother}
-        onClose={() => setShowCreateAnother(false)}
-        onSelectType={handleCreateAnother}
-      />
-
-      <TranscriptModal
-        isOpen={showTranscript}
-        onClose={() => setShowTranscript(false)}
-        transcript={generatedTranscript}
-      />
-    </div>
+        <TranscriptModal
+          isOpen={showTranscript}
+          onClose={() => setShowTranscript(false)}
+          transcript={generatedTranscript}
+        />
+      </div>
     </AuthGuard>
   );
 }

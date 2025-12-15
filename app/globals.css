@@ -174,25 +174,21 @@
 
 /* Utility classes for backgrounds and atmospheric effects */
 @layer utilities {
-  /* Mesh Gradient Backgrounds */
+  /* Mesh Gradient Backgrounds - Modern Clean Version */
   .bg-mesh-academic {
     background:
-      radial-gradient(at 27% 37%, rgba(3, 64, 120, 0.08) 0px, transparent 50%),
-      radial-gradient(at 97% 21%, rgba(18, 130, 162, 0.06) 0px, transparent 50%),
-      radial-gradient(at 52% 99%, rgba(212, 175, 55, 0.05) 0px, transparent 50%),
-      radial-gradient(at 10% 29%, rgba(0, 31, 84, 0.07) 0px, transparent 50%),
-      radial-gradient(at 85% 70%, rgba(254, 252, 191, 0.08) 0px, transparent 50%),
-      linear-gradient(135deg, #FFFEF2 0%, #F8F6E8 50%, #FFFEF2 100%);
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(18, 130, 162, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 40% at 100% 50%, rgba(3, 64, 120, 0.05) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 30% at 0% 80%, rgba(212, 175, 55, 0.04) 0%, transparent 50%),
+      linear-gradient(180deg, #FAFBFC 0%, #F5F7FA 50%, #FFFFFF 100%);
   }
 
   .bg-mesh-academic-dark {
     background:
-      radial-gradient(at 27% 37%, rgba(3, 64, 120, 0.15) 0px, transparent 50%),
-      radial-gradient(at 97% 21%, rgba(18, 130, 162, 0.12) 0px, transparent 50%),
-      radial-gradient(at 52% 99%, rgba(212, 175, 55, 0.08) 0px, transparent 50%),
-      radial-gradient(at 10% 29%, rgba(0, 31, 84, 0.2) 0px, transparent 50%),
-      radial-gradient(at 85% 70%, rgba(254, 252, 191, 0.05) 0px, transparent 50%),
-      linear-gradient(135deg, #0A1128 0%, #162038 50%, #0A1128 100%);
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(18, 130, 162, 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 40% at 100% 50%, rgba(3, 64, 120, 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 30% at 0% 80%, rgba(212, 175, 55, 0.06) 0%, transparent 50%),
+      linear-gradient(180deg, #0A1128 0%, #0F172A 50%, #0A1128 100%);
   }
 
   .bg-mesh-hero {
@@ -448,22 +444,37 @@
   .progress-bar {
     position: relative;
     overflow: hidden;
-    background: rgba(3, 64, 120, 0.1);
+    background: rgba(3, 64, 120, 0.08);
     border-radius: 9999px;
+    height: 8px;
   }
 
   .progress-bar-fill {
     height: 100%;
     background: linear-gradient(
       90deg,
-      var(--color-primary),
-      var(--color-cerulean),
-      var(--color-primary)
+      #10B981 0%,
+      #34D399 50%,
+      #10B981 100%
     );
     background-size: 200% 100%;
     animation: shimmer-progress 2s linear infinite;
     border-radius: 9999px;
-    transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+  }
+
+  /* Empty progress state */
+  .progress-bar-empty {
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      rgba(156, 163, 175, 0.3) 0%,
+      rgba(156, 163, 175, 0.5) 50%,
+      rgba(156, 163, 175, 0.3) 100%
+    );
+    border-radius: 9999px;
+    width: 100%;
   }
 
   /* Tooltip with smooth fade */

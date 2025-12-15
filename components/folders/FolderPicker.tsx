@@ -11,7 +11,7 @@
 import { useState, useEffect } from 'react';
 import { Folder } from '@/lib/types/firestore';
 import * as Sentry from '@sentry/nextjs';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/components/contexts/AuthContext';
 
 interface FolderPickerProps {
   selectedFolderId: string | null;

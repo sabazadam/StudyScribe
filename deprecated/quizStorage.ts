@@ -13,7 +13,7 @@ import {
   QuizListItem,
   QuizStorageSchema,
   QuizSession,
-} from './quizTypes';
+} from '../lib/quizTypes';
 
 const STORAGE_DIR = path.join(process.cwd(), 'public', 'study-materials', 'quizzes');
 const QUIZ_FILE = path.join(STORAGE_DIR, 'quizzes.json');

@@ -350,12 +350,11 @@ function ResultsContent() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 sm:px-6 lg:px-16 xl:px-24 py-8 pb-24 max-w-7xl">
-        <div className="w-full">
+      <main className="w-full flex flex-col items-center px-4 py-8 pb-24">
+        <div className="w-full max-w-[1400px]">
           {/* Integrated Action Toolbar - Sticky with scroll behavior */}
-          <div className={`sticky top-20 z-40 mb-6 transition-transform duration-300 ${
-            isToolbarVisible ? 'translate-y-0' : '-translate-y-full'
-          }`}>
+          <div className={`sticky top-20 z-40 mb-6 transition-transform duration-300 ${isToolbarVisible ? 'translate-y-0' : '-translate-y-full'
+            }`}>
             <div className="glass border border-oxford-blue/20 rounded-xl p-4 sm:p-6 shadow-md">
               {/* Header Row: Success Icon + Title + Metadata */}
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-oxford-blue/10">
@@ -456,67 +455,67 @@ function ResultsContent() {
             </div>
           </div>
 
-          {/* Content Area - Optimized Width and Spacing */}
+          {/* Content Area - Expanded Width for Better Readability */}
           <div className="w-full">
-            <div className="card-elevated glass p-6 sm:p-8 lg:p-10 xl:p-12">
-            {/* Content Display */}
-            {showTranscript && transcript ? (
-              <div className="glass border border-oxford-blue/20 rounded-xl p-6">
-                <h3 className="text-lg font-heading font-bold text-oxford-blue mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-cerulean">article</span>
-                  Lecture Transcript
-                </h3>
-                <div className="text-sm text-oxford-blue/80 whitespace-pre-wrap font-mono leading-relaxed max-h-[600px] overflow-y-auto custom-scrollbar">
-                  {transcript}
-                </div>
-              </div>
-            ) : materialType === 'quiz' && quiz ? (
-              /* Quiz Preview */
-              <div className="glass border border-oxford-blue/20 rounded-xl p-6 not-prose">
-                <h3 className="text-2xl font-heading font-bold text-oxford-blue mb-4 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-green-600">quiz</span>
-                  {quiz.title}
-                </h3>
-                {quiz.description && (
-                  <p className="text-oxford-blue/70 mb-6">{quiz.description}</p>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                    <div className="text-3xl font-bold text-blue-600 mb-1">{quiz.questions.length}</div>
-                    <div className="text-sm text-blue-700">Questions</div>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                    <div className="text-3xl font-bold text-purple-600 mb-1">{quiz.difficulty || 'medium'}</div>
-                    <div className="text-sm text-purple-700">Difficulty</div>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                    <div className="text-3xl font-bold text-green-600 mb-1">Multiple Choice</div>
-                    <div className="text-sm text-green-700">Format</div>
+            <div className="card-elevated glass p-6 sm:p-8 lg:p-12 xl:p-16">
+              {/* Content Display */}
+              {showTranscript && transcript ? (
+                <div className="glass border border-oxford-blue/20 rounded-xl p-6">
+                  <h3 className="text-lg font-heading font-bold text-oxford-blue mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-cerulean">article</span>
+                    Lecture Transcript
+                  </h3>
+                  <div className="text-sm text-oxford-blue/80 whitespace-pre-wrap font-mono leading-relaxed max-h-[600px] overflow-y-auto custom-scrollbar">
+                    {transcript}
                   </div>
                 </div>
+              ) : materialType === 'quiz' && quiz ? (
+                /* Quiz Preview */
+                <div className="glass border border-oxford-blue/20 rounded-xl p-6 not-prose">
+                  <h3 className="text-2xl font-heading font-bold text-oxford-blue mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-green-600">quiz</span>
+                    {quiz.title}
+                  </h3>
+                  {quiz.description && (
+                    <p className="text-oxford-blue/70 mb-6">{quiz.description}</p>
+                  )}
 
-                <h4 className="font-semibold text-oxford-blue mb-3">Question Preview:</h4>
-                <div className="bg-white rounded-lg p-4 border border-oxford-blue/20 mb-4">
-                  <p className="font-medium text-oxford-blue mb-3">{quiz.questions[0]?.question}</p>
-                  <div className="space-y-2">
-                    {quiz.questions[0]?.options.slice(0, 4).map((option: string, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2 text-sm text-oxford-blue/70">
-                        <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold">
-                          {String.fromCharCode(65 + idx)}
-                        </span>
-                        <span>{option}</span>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <div className="text-3xl font-bold text-blue-600 mb-1">{quiz.questions.length}</div>
+                      <div className="text-sm text-blue-700">Questions</div>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                      <div className="text-3xl font-bold text-purple-600 mb-1">{quiz.difficulty || 'medium'}</div>
+                      <div className="text-sm text-purple-700">Difficulty</div>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                      <div className="text-3xl font-bold text-green-600 mb-1">Multiple Choice</div>
+                      <div className="text-sm text-green-700">Format</div>
+                    </div>
                   </div>
-                </div>
 
-                <p className="text-sm text-oxford-blue/60 italic">
-                  Click &ldquo;Start Quiz Now&rdquo; above to begin taking the quiz!
-                </p>
-              </div>
-            ) : (
-              <div className="prose prose-lg dark:prose-invert max-w-none
+                  <h4 className="font-semibold text-oxford-blue mb-3">Question Preview:</h4>
+                  <div className="bg-white rounded-lg p-4 border border-oxford-blue/20 mb-4">
+                    <p className="font-medium text-oxford-blue mb-3">{quiz.questions[0]?.question}</p>
+                    <div className="space-y-2">
+                      {quiz.questions[0]?.options.slice(0, 4).map((option: string, idx: number) => (
+                        <div key={idx} className="flex items-center gap-2 text-sm text-oxford-blue/70">
+                          <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold">
+                            {String.fromCharCode(65 + idx)}
+                          </span>
+                          <span>{option}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-oxford-blue/60 italic">
+                    Click &ldquo;Start Quiz Now&rdquo; above to begin taking the quiz!
+                  </p>
+                </div>
+              ) : (
+                <div className="prose prose-lg dark:prose-invert max-w-none
                 prose-headings:font-heading prose-headings:text-oxford-blue dark:prose-headings:text-text-dark
                 prose-p:text-oxford-blue/90 dark:prose-p:text-text-dark/90 prose-p:leading-relaxed
                 prose-strong:text-oxford-blue dark:prose-strong:text-text-dark prose-strong:font-semibold
@@ -527,23 +526,23 @@ function ResultsContent() {
                 prose-code:text-oxford-blue dark:prose-code:text-text-dark prose-code:bg-oxford-blue/5 dark:prose-code:bg-gray-800
                 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
                 prose-pre:bg-oxford-blue/5 dark:prose-pre:bg-gray-800 prose-pre:border prose-pre:border-oxford-blue/10">
-                <ChatMessage
-                  content={content}
-                  role="assistant"
-                  timestamp={new Date().toISOString()}
+                  <ChatMessage
+                    content={content}
+                    role="assistant"
+                    timestamp={new Date().toISOString()}
+                  />
+                </div>
+              )}
+
+              {/* Feedback Widget */}
+              <div className="mt-12 pt-8 border-t border-oxford-blue/10 not-prose">
+                <FeedbackWidget
+                  materialType={materialType}
+                  onFeedbackSubmit={(rating, comment) => {
+                    console.log('Feedback:', { rating, comment, materialType });
+                  }}
                 />
               </div>
-            )}
-
-            {/* Feedback Widget */}
-            <div className="mt-12 pt-8 border-t border-oxford-blue/10 not-prose">
-              <FeedbackWidget
-                materialType={materialType}
-                onFeedbackSubmit={(rating, comment) => {
-                  console.log('Feedback:', { rating, comment, materialType });
-                }}
-              />
-            </div>
             </div>
           </div>
         </div>
@@ -553,99 +552,99 @@ function ResultsContent() {
       <div className="lg:hidden fixed bottom-0 left-0 right-0
             bg-white/95 backdrop-blur-md border-t border-gray-200
             px-4 py-3 z-50 shadow-lg">
-            <div className="flex justify-around gap-2 max-w-2xl mx-auto">
+        <div className="flex justify-around gap-2 max-w-2xl mx-auto">
 
-              {/* Save to Hub (Mobile - Icon Only) */}
-              <button
-                onClick={handleSaveToHub}
-                disabled={isSaving || isSaved}
-                aria-label={isSaved ? 'Saved!' : 'Save to Hub'}
-                title={isSaved ? 'Saved!' : 'Save to Hub'}
-                className={`flex items-center justify-center
+          {/* Save to Hub (Mobile - Icon Only) */}
+          <button
+            onClick={handleSaveToHub}
+            disabled={isSaving || isSaved}
+            aria-label={isSaved ? 'Saved!' : 'Save to Hub'}
+            title={isSaved ? 'Saved!' : 'Save to Hub'}
+            className={`flex items-center justify-center
                   w-12 h-12 rounded-full
                   ${isSaved
-                    ? 'bg-success'
-                    : 'bg-cerulean active:bg-cerulean/90'
-                  }
+                ? 'bg-success'
+                : 'bg-cerulean active:bg-cerulean/90'
+              }
                   text-white shadow-md active:shadow-lg
                   transition-all duration-150
                   active:scale-95
                   focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2
                   disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <span className="material-symbols-outlined text-2xl">
-                  {isSaving ? 'hourglass_empty' : (isSaved ? 'check_circle' : 'bookmark')}
-                </span>
-              </button>
+          >
+            <span className="material-symbols-outlined text-2xl">
+              {isSaving ? 'hourglass_empty' : (isSaved ? 'check_circle' : 'bookmark')}
+            </span>
+          </button>
 
-              {/* Download (Mobile - Icon Only) */}
-              <button
-                onClick={handleDownload}
-                aria-label="Download"
-                title="Download"
-                className="flex items-center justify-center
+          {/* Download (Mobile - Icon Only) */}
+          <button
+            onClick={handleDownload}
+            aria-label="Download"
+            title="Download"
+            className="flex items-center justify-center
                   w-12 h-12 rounded-full
                   bg-oxford-blue active:bg-oxford-blue/90
                   text-white shadow-md active:shadow-lg
                   transition-all duration-150
                   active:scale-95
                   focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-              >
-                <span className="material-symbols-outlined text-2xl">download</span>
-              </button>
+          >
+            <span className="material-symbols-outlined text-2xl">download</span>
+          </button>
 
-              {/* View Transcript (Mobile - Icon Only - Conditional) */}
-              {transcript && (
-                <button
-                  onClick={() => setShowTranscript(!showTranscript)}
-                  aria-label={showTranscript ? 'Hide Transcript' : 'View Transcript'}
-                  title={showTranscript ? 'Hide Transcript' : 'View Transcript'}
-                  className="flex items-center justify-center
+          {/* View Transcript (Mobile - Icon Only - Conditional) */}
+          {transcript && (
+            <button
+              onClick={() => setShowTranscript(!showTranscript)}
+              aria-label={showTranscript ? 'Hide Transcript' : 'View Transcript'}
+              title={showTranscript ? 'Hide Transcript' : 'View Transcript'}
+              className="flex items-center justify-center
                     w-12 h-12 rounded-full
                     bg-prussian-blue active:bg-prussian-blue/90
                     text-white shadow-md active:shadow-lg
                     transition-all duration-150
                     active:scale-95
                     focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-                >
-                  <span className="material-symbols-outlined text-2xl">
-                    {showTranscript ? 'visibility_off' : 'article'}
-                  </span>
-                </button>
-              )}
+            >
+              <span className="material-symbols-outlined text-2xl">
+                {showTranscript ? 'visibility_off' : 'article'}
+              </span>
+            </button>
+          )}
 
-              {/* Create Another (Mobile - Icon Only) */}
-              <button
-                onClick={handleCreateAnother}
-                aria-label="Create Another"
-                title="Create Another"
-                className="flex items-center justify-center
+          {/* Create Another (Mobile - Icon Only) */}
+          <button
+            onClick={handleCreateAnother}
+            aria-label="Create Another"
+            title="Create Another"
+            className="flex items-center justify-center
                   w-12 h-12 rounded-full
                   bg-amber-500 active:bg-amber-600
                   text-white shadow-md active:shadow-lg
                   transition-all duration-150
                   active:scale-95
                   focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-              >
-                <span className="material-symbols-outlined text-2xl">add_circle</span>
-              </button>
+          >
+            <span className="material-symbols-outlined text-2xl">add_circle</span>
+          </button>
 
-              {/* Start Over (Mobile - Icon Only) */}
-              <button
-                onClick={handleStartOver}
-                aria-label="Start Over"
-                title="Start Over"
-                className="flex items-center justify-center
+          {/* Start Over (Mobile - Icon Only) */}
+          <button
+            onClick={handleStartOver}
+            aria-label="Start Over"
+            title="Start Over"
+            className="flex items-center justify-center
                   w-12 h-12 rounded-full
                   bg-gray-500 active:bg-gray-600
                   text-white shadow-md active:shadow-lg
                   transition-all duration-150
                   active:scale-95
                   focus:outline-none focus:ring-2 focus:ring-gold focus:ring-offset-2"
-              >
-                <span className="material-symbols-outlined text-2xl">refresh</span>
-              </button>
-            </div>
+          >
+            <span className="material-symbols-outlined text-2xl">refresh</span>
+          </button>
+        </div>
 
         {/* Error Display (Mobile) */}
         {error && (

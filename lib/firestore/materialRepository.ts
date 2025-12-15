@@ -15,6 +15,8 @@ import {
   MaterialType,
   MaterialSources,
   MaterialImageData,
+  MaterialListItem,
+  PaginatedMaterialList,
   materialDocumentToMaterial,
 } from '@/lib/types/firestore';
 
@@ -157,6 +159,8 @@ export async function getMaterialById(
       updatedAt: data.updatedAt as Timestamp,
       title: data.title,
       tags: data.tags || [],
+      folderId: data.folderId || null,
+      folderPath: data.folderPath || [],
     };
 
     return materialDocumentToMaterial(materialDoc);
@@ -203,6 +207,8 @@ export async function getUserMaterials(
         updatedAt: data.updatedAt as Timestamp,
         title: data.title,
         tags: data.tags || [],
+        folderId: data.folderId || null,
+        folderPath: data.folderPath || [],
       };
       materials.push(materialDocumentToMaterial(materialDoc));
     });
@@ -255,6 +261,8 @@ export async function getUserMaterialsByType(
         updatedAt: data.updatedAt as Timestamp,
         title: data.title,
         tags: data.tags || [],
+        folderId: data.folderId || null,
+        folderPath: data.folderPath || [],
       };
       materials.push(materialDocumentToMaterial(materialDoc));
     });
@@ -371,5 +379,108 @@ export async function searchMaterials(
   } catch (error: any) {
     console.error('[materialRepository] Error searching materials:', error);
     throw new Error(`Failed to search materials: ${error.message}`);
+  }
+}
+
+/**
+ * Get paginated list of materials (lightweight - excludes content/sources/images)
+ * Optimized for Study Hub display - reduces data transfer significantly
+ *
+ * @param userId - User ID to fetch materials for
+ * @param pageSize - Number of materials per page (default: 8)
+ * @param cursor - Document ID to start after (for pagination)
+ * @returns Paginated list of lightweight material items
+ */
+export async function getMaterialsList(
+  userId: string,
+  pageSize: number = 8,
+  cursor?: string
+): Promise<PaginatedMaterialList> {
+  try {
+    if (!userId) {
+      throw new Error('userId is required');
+    }
+
+    const materialsRef = adminDb.collection(MATERIALS_COLLECTION);
+
+    // Build query - fetch pageSize + 1 to determine if there are more
+    let query = materialsRef
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(pageSize + 1);
+
+    // If cursor provided, start after that document
+    if (cursor) {
+      const cursorDoc = await materialsRef.doc(cursor).get();
+      if (cursorDoc.exists) {
+        query = query.startAfter(cursorDoc);
+      }
+    }
+
+    const querySnapshot = await query.get();
+    const docs = querySnapshot.docs;
+
+    // Check if there are more results
+    const hasMore = docs.length > pageSize;
+    const materialsToReturn = hasMore ? docs.slice(0, pageSize) : docs;
+
+    const materials: MaterialListItem[] = materialsToReturn.map((doc) => {
+      const data = doc.data();
+      const createdAt = data.createdAt as Timestamp;
+      const updatedAt = data.updatedAt as Timestamp;
+
+      return {
+        id: doc.id,
+        userId: data.userId,
+        title: data.title || 'Untitled',
+        materialType: data.materialType,
+        createdAt: createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        updatedAt: updatedAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+        folderId: data.folderId || null,
+        folderPath: data.folderPath || [],
+        tags: data.tags || [],
+        // Compute metadata flags without fetching full data
+        hasImages: !!(data.imageData?.images?.length),
+        hasTranscript: !!data.sources?.transcript,
+        hasSlides: !!data.sources?.slideText,
+      };
+    });
+
+    // Get the last document ID for next cursor
+    const lastDoc = materialsToReturn[materialsToReturn.length - 1];
+    const nextCursor = hasMore && lastDoc ? lastDoc.id : undefined;
+
+    console.log(`[materialRepository] Fetched ${materials.length} materials (page), hasMore: ${hasMore}`);
+
+    return {
+      materials,
+      nextCursor,
+      hasMore,
+    };
+  } catch (error: any) {
+    console.error('[materialRepository] Error getting materials list:', error);
+    throw new Error(`Failed to get materials list: ${error.message}`);
+  }
+}
+
+/**
+ * Get total count of materials for a user
+ * Useful for showing "X of Y" in pagination
+ */
+export async function getMaterialsCount(userId: string): Promise<number> {
+  try {
+    if (!userId) {
+      throw new Error('userId is required');
+    }
+
+    const snapshot = await adminDb.collection(MATERIALS_COLLECTION)
+      .where('userId', '==', userId)
+      .count()
+      .get();
+
+    return snapshot.data().count;
+  } catch (error: any) {
+    console.error('[materialRepository] Error counting materials:', error);
+    throw new Error(`Failed to count materials: ${error.message}`);
   }
 }

@@ -10,7 +10,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRouter } from 'next/navigation';
 import ForgotPasswordPage from '../page';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/components/contexts/AuthContext';
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
@@ -19,7 +19,7 @@ jest.mock('next/navigation', () => ({
 }));
 
 // Mock AuthContext
-jest.mock('@/contexts/AuthContext', () => ({
+jest.mock('@/components/contexts/AuthContext', () => ({
   useAuth: jest.fn(),
 }));
 
